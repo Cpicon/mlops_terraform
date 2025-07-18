@@ -1,0 +1,43 @@
+name: Terraform set up
+description: Common steps for terraform (setup, init, fmt, validate, plan)
+
+## ==============================================
+## Section 1: FILL IN CODE HERE TO SET UP SCHEDULING + ANY ENVIRONMENT VARIABLES
+## ==============================================
+
+jobs:
+  terraform:
+    name: "Terraform Apply"
+    defaults:
+      run:
+        shell: bash
+
+runs:
+  steps:
+      - name: Setup Terraform with specified version on the runner
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.3.7
+
+      - name: Google Auth
+        id: auth
+        ## ==============================================
+        ## Section 2: FILL IN CODE HERE TO SET UP GOOGLE AUTHENTICATION
+        ## ==============================================
+
+      - name: Terraform init
+        id: init
+        run: terraform init
+        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
+
+      - name: Terraform checks
+        id: checks
+        run:
+        ## ==============================================
+        ## Section 3: FILL IN CODE HERE TO SET UP TERRAFORM CHECKS
+        ## ==============================================
+
+      - name: Terraform Apply
+        run: terraform apply
+        shell: bash
+        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
