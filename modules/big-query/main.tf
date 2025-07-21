@@ -46,22 +46,26 @@ resource "google_bigquery_table" "transcripts" {
 # IAM Bindings for Dataset Access
 # Using google_bigquery_dataset_iam_binding for each role
 
-# Data Owners binding
+# Data Owners binding - dataOwner role
 resource "google_bigquery_dataset_iam_binding" "data_owners" {
-  count = length(var.data_owners) > 0 ? 1 : 0
-
   dataset_id = google_bigquery_dataset.test_data.dataset_id
   project    = var.project_id
   role       = "roles/bigquery.dataOwner"
 
-  members = [for email in var.data_owners :
-    startswith(email, "serviceAccount:") ? email : "user:${email}"
-  ]
+  members = [for email in var.data_owners : "user:${email}"]
+}
+
+# Data Owners binding - admin role for full BigQuery administration
+resource "google_bigquery_dataset_iam_binding" "data_owners_admin" {
+  dataset_id = google_bigquery_dataset.test_data.dataset_id
+  project    = var.project_id
+  role       = "roles/bigquery.admin"
+
+  members = [for email in var.data_owners : "user:${email}"]
 }
 
 # Data Editors binding
 resource "google_bigquery_dataset_iam_binding" "data_editors" {
-  count = length(var.data_editors) > 0 || length(var.data_editor_groups) > 0 || var.ml_pipeline_sa != "" ? 1 : 0
 
   dataset_id = google_bigquery_dataset.test_data.dataset_id
   project    = var.project_id
@@ -69,21 +73,16 @@ resource "google_bigquery_dataset_iam_binding" "data_editors" {
 
   members = concat(
     # Individual users
-    [for email in var.data_editors :
-      startswith(email, "serviceAccount:") ? email : "user:${email}"
-    ],
+    [for email in var.data_editors : "user:${email}"],
     # Groups
     [for group in var.data_editor_groups : "group:${group}"],
-    # ML pipeline service account - handle if it already has serviceAccount: prefix
-    var.ml_pipeline_sa != "" ? [
-      startswith(var.ml_pipeline_sa, "serviceAccount:") ? var.ml_pipeline_sa : "serviceAccount:${var.ml_pipeline_sa}"
-    ] : []
+    # ML pipeline service account
+    var.ml_pipeline_sa != "" ? ["serviceAccount:${var.ml_pipeline_sa}"] : []
   )
 }
 
 # Data Viewers binding
 resource "google_bigquery_dataset_iam_binding" "data_viewers" {
-  count = length(var.data_viewers) > 0 || length(var.data_viewer_groups) > 0 ? 1 : 0
 
   dataset_id = google_bigquery_dataset.test_data.dataset_id
   project    = var.project_id
@@ -91,9 +90,7 @@ resource "google_bigquery_dataset_iam_binding" "data_viewers" {
 
   members = concat(
     # Individual users
-    [for email in var.data_viewers :
-      startswith(email, "serviceAccount:") ? email : "user:${email}"
-    ],
+    [for email in var.data_viewers : "user:${email}"],
     # Groups
     [for group in var.data_viewer_groups : "group:${group}"]
   )

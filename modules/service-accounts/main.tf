@@ -8,15 +8,22 @@ resource "google_service_account" "ml_pipeline" {
 }
 
 # Grant necessary roles to the ML pipeline service account
-# BigQuery Job User - allows the SA to run BigQuery jobs
+# Note: google_project_iam_member requires one role per resource
+# Multiple roles cannot be specified in a single resource
 resource "google_project_iam_member" "ml_pipeline_bigquery_user" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${google_service_account.ml_pipeline.email}"
 }
 
-# Additional roles can be added here as needed
-# For example:
-# - roles/storage.objectViewer for reading from GCS
-# - roles/aiplatform.user for using Vertex AI
-# - roles/pubsub.editor for Pub/Sub operations
+resource "google_project_iam_member" "ml_pipeline_storage_viewer" {
+  project = var.project_id
+  role    = "roles/storage.objectViewer"
+  member  = "serviceAccount:${google_service_account.ml_pipeline.email}"
+}
+
+resource "google_project_iam_member" "ml_pipeline_aiplatform_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.ml_pipeline.email}"
+}

@@ -53,9 +53,11 @@ This module uses standard BigQuery IAM roles:
 
 | Role | Permission Level | Use Case |
 |------|-----------------|----------|
-| `roles/bigquery.dataOwner` | Full control | Dataset administrators |
+| `roles/bigquery.dataOwner` + `roles/bigquery.admin` | Full control + Admin | Dataset administrators, Head of AI |
 | `roles/bigquery.dataEditor` | Read/Write | Data scientists, ML engineers |
 | `roles/bigquery.dataViewer` | Read only | Analysts, reporting users |
+
+**Note**: Data owners receive both `dataOwner` and `admin` roles for complete BigQuery administration capabilities.
 
 ## Why IAM Bindings?
 

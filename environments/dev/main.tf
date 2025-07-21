@@ -1,7 +1,7 @@
 locals {
   project-id = var.project_id
   region     = var.region
-
+  usernames = var.dataset_owners
   # BigQuery access mappings
   # This centralizes the mapping between user-friendly variable names 
   # and the BigQuery module's technical parameter names
@@ -30,8 +30,7 @@ locals {
 module "service_accounts" {
   source = "../../modules/service-accounts"
 
-  project_id  = var.project_id
-  environment = "dev"
+  project_id = var.project_id
 }
 
 # BigQuery Module for test data
@@ -47,6 +46,7 @@ module "bigquery" {
 
   # Labels for resource organization
   labels = {
+    environment = "dev"
     team        = "mlops"
     managed_by  = "terraform"
   }
