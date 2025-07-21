@@ -27,3 +27,21 @@ resource "google_project_iam_member" "ml_pipeline_aiplatform_user" {
   role    = "roles/aiplatform.user"
   member  = "serviceAccount:${google_service_account.ml_pipeline.email}"
 }
+
+# Grant logging viewer roles to all users (owners, writers, readers)
+# Each user needs separate resources for each role
+resource "google_project_iam_member" "all_users_logging_viewer" {
+  for_each = toset(var.all_users)
+  
+  project = var.project_id
+  role    = "roles/logging.viewer"
+  member  = "user:${each.value}"
+}
+
+resource "google_project_iam_member" "all_users_logging_view_accessor" {
+  for_each = toset(var.all_users)
+  
+  project = var.project_id
+  role    = "roles/logging.viewAccessor"
+  member  = "user:${each.value}"
+}

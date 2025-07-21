@@ -8,3 +8,9 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
+
+variable "all_users" {
+  description = "List of all user emails who should have logging viewer access (owners, writers, readers)"
+  type        = list(string)
+  default     = []
+}

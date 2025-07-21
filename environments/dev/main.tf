@@ -1,7 +1,7 @@
 locals {
   project-id = var.project_id
   region     = var.region
-  usernames = var.dataset_owners
+  usernames = concat(var.dataset_owners, var.dataset_writers, var.dataset_readers)
   # BigQuery access mappings
   # This centralizes the mapping between user-friendly variable names 
   # and the BigQuery module's technical parameter names
@@ -31,6 +31,7 @@ module "service_accounts" {
   source = "../../modules/service-accounts"
 
   project_id = var.project_id
+  all_users  = local.usernames  # Pass all users (owners, writers, readers) for logging access
 }
 
 # BigQuery Module for test data
