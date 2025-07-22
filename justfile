@@ -356,6 +356,46 @@ enable-apis ENV:
     just _check_env {{ENV}}
     just _enable_apis_single {{ENV}}
 
+# Setup Workload Identity Federation for GitHub Actions
+setup-wif ENV GITHUB_ORG GITHUB_REPO:
+    #!/bin/bash
+    # Validate environment
+    just _check_env {{ENV}}
+    
+    # Load environment variables
+    if [ -f .env-mlops ]; then
+        source .env-mlops
+    else
+        echo "❌ Environment variables not configured. Run: just setup-vars"
+        exit 1
+    fi
+    
+    # Get project ID for environment
+    PROJECT=$(just _get_project {{ENV}})
+    
+    echo "🔐 Setting up Workload Identity Federation for {{ENV}} environment..."
+    ./scripts/setup-wif.sh -p "$PROJECT" -e {{ENV}} -o {{GITHUB_ORG}} -r {{GITHUB_REPO}}
+
+# Verify Workload Identity Federation setup
+verify-wif ENV:
+    #!/bin/bash
+    # Validate environment
+    just _check_env {{ENV}}
+    
+    # Load environment variables
+    if [ -f .env-mlops ]; then
+        source .env-mlops
+    else
+        echo "❌ Environment variables not configured. Run: just setup-vars"
+        exit 1
+    fi
+    
+    # Get project ID for environment
+    PROJECT=$(just _get_project {{ENV}})
+    
+    echo "🔍 Verifying Workload Identity Federation for {{ENV}} environment..."
+    ./scripts/verify-wif.sh -p "$PROJECT" -e {{ENV}}
+
 # Grant impersonation permissions to users/groups for service accounts
 grant-impersonation ENV MEMBER:
     #!/bin/bash
@@ -486,6 +526,28 @@ help COMMAND="":
             echo "  - terraform-<env>@ (state management)"
             echo "  - terraform-<env>-resources@ (infrastructure provisioning)"
             ;;
+        "setup-wif")
+            echo "Set up Workload Identity Federation for GitHub Actions"
+            echo "Usage: just setup-wif <env> <github-org> <github-repo>"
+            echo "Examples:"
+            echo "  just setup-wif dev myorg myrepo"
+            echo "  just setup-wif prod company infrastructure"
+            echo "This configures:"
+            echo "  - Workload Identity Pool (github-pool)"
+            echo "  - OIDC Provider (github-provider)"
+            echo "  - Service account permissions for GitHub Actions"
+            ;;
+        "verify-wif")
+            echo "Verify Workload Identity Federation setup"
+            echo "Usage: just verify-wif <env>"
+            echo "Examples:"
+            echo "  just verify-wif dev"
+            echo "  just verify-wif prod"
+            echo "This checks:"
+            echo "  - Required APIs are enabled"
+            echo "  - WIF pool and provider exist"
+            echo "  - Service account has correct permissions"
+            ;;
         "setup")
             echo "Setup environments - specific environment or all environments"
             echo "Usage: just setup [env]"
@@ -514,10 +576,15 @@ help COMMAND="":
             echo "  just create-projects <env|--all>          # Create GCP projects with billing"
             echo "  just enable-apis <env|--all>    # Enable APIs"
             echo "  just create-service-accounts <env|--all>  # Create service accounts"
-            echo "  just download-sa-keys <env|--all>         # Download SA keys"
+            echo "  just download-sa-keys <env|--all>         # Download SA keys (deprecated)"
             echo "  just init <env>                 # Initialize Terraform in environment directory"
             echo "  just plan <env>                 # Plan changes with env-specific vars"
             echo "  just apply <env>                # Apply changes with env-specific vars"
+            echo
+            echo "🔐 Security & Authentication:"
+            echo "  just grant-impersonation <env> <member>   # Grant impersonation rights"
+            echo "  just setup-wif <env> <org> <repo>        # Setup GitHub Actions auth"
+            echo "  just verify-wif <env>                    # Verify WIF configuration"
             echo
             echo "💡 Infrastructure Approach:"
             echo "  • Each environment has its own Terraform configuration in environments/<env>/"

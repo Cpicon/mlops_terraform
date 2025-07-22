@@ -1,43 +1,238 @@
-name: Terraform set up
-description: Common steps for terraform (setup, init, fmt, validate, plan)
+name: Terraform Apply
 
 ## ==============================================
-## Section 1: FILL IN CODE HERE TO SET UP SCHEDULING + ANY ENVIRONMENT VARIABLES
+## Section 1: SCHEDULING AND TRIGGERS
 ## ==============================================
+on:
+  # Trigger on PR events
+  pull_request:
+    types: [opened, synchronize, closed]
+    branches:
+      - main      # PR to main
+      - develop   # PR to develop
+      - '**'      # Any other PR
+  
+  # Trigger on push to dev branches
+  push:
+    branches:
+      - 'dev/**'  # Push to dev/* branches = dev deployment
+  
+  # Manual trigger via GitHub UI (dev only)
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy (dev only for manual trigger)'
+        required: true
+        type: choice
+        options:
+          - dev
+        default: dev
+  
+  # Scheduled run at 1 AM UTC every day
+  schedule:
+    - cron: '0 1 * * *'  # 1 AM UTC daily for prod
 
+# Environment variables
+env:
+  TF_VERSION: '1.5.7'
+  
 jobs:
-  terraform:
-    name: "Terraform Apply"
+  # Job 1: Plan
+  terraform-plan:
+    name: "Terraform Plan"
+    runs-on: ubuntu-latest
+    
+    # Set environment based on trigger
+    env:
+      ENVIRONMENT: ${{ 
+        github.event_name == 'workflow_dispatch' && github.event.inputs.environment ||
+        github.event_name == 'schedule' && 'prod' ||
+        (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'main') && 'prod' ||
+        (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'develop') && 'stage' ||
+        (github.event_name == 'pull_request' && !github.event.pull_request.merged && github.base_ref == 'main') && 'prod' ||
+        (github.event_name == 'pull_request' && !github.event.pull_request.merged && github.base_ref == 'develop') && 'stage' ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev/')) && 'dev' ||
+        'dev' }}
+    
+    outputs:
+      environment: ${{ env.ENVIRONMENT }}
+      plan-exitcode: ${{ steps.plan.outputs.exitcode }}
+    
     defaults:
       run:
         shell: bash
-
-runs:
-  steps:
-      - name: Setup Terraform with specified version on the runner
-        uses: hashicorp/setup-terraform@v2
+        working-directory: environments/${{ env.ENVIRONMENT }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.3.7
-
-      - name: Google Auth
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      ## ==============================================
+      ## Section 2: GOOGLE CLOUD AUTHENTICATION WITH WIF
+      ## ==============================================
+      - name: Authenticate to Google Cloud
         id: auth
-        ## ==============================================
-        ## Section 2: FILL IN CODE HERE TO SET UP GOOGLE AUTHENTICATION
-        ## ==============================================
-
-      - name: Terraform init
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com'
+          token_format: 'access_token'
+      
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+      
+      ## ==============================================
+      ## Section 3: TERRAFORM CHECKS AND PLAN
+      ## ==============================================
+      
+      # Check formatting
+      - name: Terraform Format Check
+        id: fmt
+        run: |
+          terraform fmt -check -recursive
+        continue-on-error: true
+      
+      # Initialize Terraform
+      - name: Terraform Init
         id: init
-        run: terraform init
-        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
-
-      - name: Terraform checks
-        id: checks
-        run:
-        ## ==============================================
-        ## Section 3: FILL IN CODE HERE TO SET UP TERRAFORM CHECKS
-        ## ==============================================
-
-      - name: Terraform Apply
-        run: terraform apply
+        run: |
+          terraform init -no-color
+      
+      # Validate configuration
+      - name: Terraform Validate
+        id: validate
+        run: |
+          terraform validate -no-color
+      
+      # Generate plan
+      - name: Terraform Plan
+        id: plan
+        run: |
+          set +e
+          terraform plan -no-color -out=tfplan -detailed-exitcode
+          exitcode=$?
+          echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
+          
+          # Exit codes: 0 = no changes, 1 = error, 2 = changes present
+          if [ $exitcode -eq 1 ]; then
+            echo "Terraform plan failed with error"
+            exit 1
+          fi
+          exit 0
+      
+      # Save plan for apply job (only if plan succeeded)
+      - name: Upload Plan
+        if: steps.plan.outputs.exitcode != '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ env.ENVIRONMENT }}
+          path: environments/${{ env.ENVIRONMENT }}/tfplan
+          retention-days: 1
+      
+      # Comment on PR if this is from a pull request
+      - name: Comment Plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `#### Terraform Format and Style 🖌 \`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️ \`${{ steps.init.outcome }}\`
+            #### Terraform Validation 🤖 \`${{ steps.validate.outcome }}\`
+            #### Terraform Plan 📖 \`${{ steps.plan.outcome }}\`
+            
+            <details><summary>Show Plan for ${{ env.ENVIRONMENT }} environment</summary>
+            
+            \`\`\`terraform
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+            
+            </details>
+            
+            **Target Environment:** \`${{ env.ENVIRONMENT }}\`
+            **Plan shows changes that will be applied when this PR is merged**
+            
+            *Triggered by: @${{ github.actor }}, Action: ${{ github.event_name }}*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+  
+  # Job 2: Apply (only runs if plan succeeds and conditions are met)
+  terraform-apply:
+    name: "Terraform Apply"
+    needs: terraform-plan
+    runs-on: ubuntu-latest
+    
+    # Only run apply for specific conditions
+    if: |
+      needs.terraform-plan.outputs.plan-exitcode == '2' &&
+      (
+        (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'main') ||
+        (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'develop') ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev/')) ||
+        (github.event_name == 'workflow_dispatch') ||
+        (github.event_name == 'schedule')
+      )
+    
+    env:
+      ENVIRONMENT: ${{ needs.terraform-plan.outputs.environment }}
+    
+    defaults:
+      run:
         shell: bash
-        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
+        working-directory: environments/${{ env.ENVIRONMENT }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      # Re-authenticate (new job needs fresh auth)
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com'
+          token_format: 'access_token'
+      
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+      
+      # Download the plan
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ env.ENVIRONMENT }}
+          path: environments/${{ env.ENVIRONMENT }}
+      
+      # Initialize Terraform
+      - name: Terraform Init
+        run: |
+          terraform init -no-color
+      
+      # Apply the plan
+      - name: Terraform Apply
+        run: |
+          terraform apply -no-color -auto-approve tfplan
+      
+      # Output summary
+      - name: Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Event**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ Successfully applied" >> $GITHUB_STEP_SUMMARY
