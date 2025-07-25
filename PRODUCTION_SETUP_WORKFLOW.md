@@ -116,7 +116,7 @@ Admin user must have these IAM roles:
 #### Steady State (Team Members)
 Team members need:
 - `roles/iam.serviceAccountTokenCreator` on the terraform-{env}@ SA
-- Granted via: `just grant-impersonation {env} --user email@company.com`
+- Granted via: `just grant-impersonation {env} user:email@company.com`
 
 ### Required Information
 - GCP Project ID for each environment
@@ -393,30 +393,6 @@ just plan dev
 # 3. The service accounts have correct permissions
 ```
 
-### 7.4 Customize User Mappings (Optional)
-```bash
-# Edit the generated tfvars files to add team members
-# Development environment
-nano environments/dev/terraform.tfvars
-
-# Add team members to user_mappings section:
-# user_mappings = {
-#   "terraform-dev@${DEV_PROJECT}.iam.gserviceaccount.com" = [
-#     "roles/logging.viewer",
-#     "roles/logging.viewAccessor"
-#   ]
-#   "dev-team@company.com" = [
-#     "roles/bigquery.user",
-#     "roles/storage.objectViewer",
-#     "roles/aiplatform.user"
-#   ]
-# }
-
-# Repeat for staging and production environments
-nano environments/stage/terraform.tfvars
-nano environments/prod/terraform.tfvars
-```
-
 ## Step 8: Deploy Infrastructure
 
 ### 8.1 Deploy to Development
@@ -459,7 +435,7 @@ just plan prod   # Review what would change
 ### 9.1 Grant Team Access (Bootstrap Phase)
 ```bash
 # Development Team - Full access to dev environment
-just grant-impersonation dev :groupdev-team@company.com
+just grant-impersonation dev group:groupdev-team@company.com
 ```
 
 ### 9.2 Move IAM to Terraform (Steady State)
@@ -514,15 +490,17 @@ just plan dev
 # Developer Local Testing
 gcloud auth application-default login  # One-time per session
 cd mlops_terraform
+just init dev
 just plan dev    # Test changes locally
 
 # Stage/Prod Deployment via CI/CD
-git checkout -b feature/infrastructure-update
+git checkout -b dev/infrastructure-update
 # Make changes
 just plan dev    # Test locally first
+just apply
 git add .
 git commit -m "feat: update infrastructure"
-git push origin feature/infrastructure-update
+git push origin dev/infrastructure-update
 
 # GitHub Actions automatically:
 # 1. Runs terraform plan on PR creation
@@ -539,131 +517,21 @@ git push origin feature/infrastructure-update
 
 ### 11.1 Workload Identity Setup
 ```bash
-# Create Workload Identity Pool (one-time)
-gcloud iam workload-identity-pools create github-actions \
-  --location="global" \
-  --display-name="GitHub Actions Pool" \
-  --project=${PROD_PROJECT}
+# For each environment
+just setup-wif dev YOUR_GITHUB_ORG YOUR_GITHUB_REPO
+just setup-wif stage YOUR_GITHUB_ORG YOUR_GITHUB_REPO  
+just setup-wif prod YOUR_GITHUB_ORG YOUR_GITHUB_REPO
 
-# Create Provider
-gcloud iam workload-identity-pools providers create-oidc github \
-  --location="global" \
-  --workload-identity-pool="github-actions" \
-  --display-name="GitHub Actions Provider" \
-  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
-  --issuer-uri="https://token.actions.githubusercontent.com" \
-  --project=${PROD_PROJECT}
+# Verify setup
+just verify-wif dev
+just verify-wif stage
+just verify-wif prod
 ```
 
-### 11.2 GitHub Actions Configuration
-```yaml
-# .github/workflows/terraform-plan.yml
-name: Terraform Plan
-on:
-  pull_request:
-    branches: [main]
-
-jobs:
-  terraform-plan:
-    strategy:
-      matrix:
-        environment: [dev, stage, prod]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-      pull-requests: write
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - id: auth
-      uses: google-github-actions/auth@v1
-      with:
-        workload_identity_provider: projects/${{ secrets[format('{0}_PROJECT_NUMBER', matrix.environment)] }}/locations/global/workloadIdentityPools/github-actions/providers/github
-        service_account: terraform-${{ matrix.environment }}@${{ secrets[format('{0}_PROJECT_ID', matrix.environment)] }}.iam.gserviceaccount.com
-    
-    - name: Terraform Plan
-      run: |
-        cd environments/${{ matrix.environment }}
-        terraform init
-        terraform plan -out=tfplan
-    
-    - name: Post Plan to PR
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const output = `#### Terraform Plan for ${{ matrix.environment }} \`${{ steps.plan.outcome }}\`
-          <details><summary>Show Plan</summary>
-          
-          \`\`\`terraform
-          ${{ steps.plan.outputs.stdout }}
-          \`\`\`
-          
-          </details>`;
-          
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: output
-          })
+### 11.2 GitHub Actions Configuration (Read [GITFLOW_PROCESS.md](./GITFLOW_PROCESS.md))
+```bash
+cat .github/workflows/terraform-apply.yml
 ```
-
-```yaml
-# .github/workflows/terraform-apply.yml
-name: Terraform Apply
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy-staging:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    environment: staging
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - id: auth
-      uses: google-github-actions/auth@v1
-      with:
-        workload_identity_provider: projects/${{ secrets.STAGE_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-actions/providers/github
-        service_account: terraform-stage@${{ secrets.STAGE_PROJECT_ID }}.iam.gserviceaccount.com
-    
-    - name: Terraform Apply Staging
-      run: |
-        cd environments/stage
-        terraform init
-        terraform apply -auto-approve
-    
-  deploy-production:
-    needs: deploy-staging
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    environment: production  # Requires manual approval in GitHub
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - id: auth
-      uses: google-github-actions/auth@v1
-      with:
-        workload_identity_provider: projects/${{ secrets.PROD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-actions/providers/github
-        service_account: terraform-prod@${{ secrets.PROD_PROJECT_ID }}.iam.gserviceaccount.com
-    
-    - name: Terraform Apply Production
-      run: |
-        cd environments/prod
-        terraform init
-        terraform apply -auto-approve
-```
-
 ## Step 12: Security Best Practices
 
 ### 12.1 No Service Account Keys
@@ -744,13 +612,14 @@ just plan dev
 
 # Correct workflow:
 # 1. Create feature branch
-git checkout -b feature/my-change
+git checkout -b dev/my-change
 
 # 2. Make changes and test locally
 just plan dev
+just apply dev
 
 # 3. Push and create PR
-git push origin feature/my-change
+git push origin dev/my-change
 # Create PR in GitHub
 
 # 4. CI/CD runs automatically:
@@ -769,6 +638,7 @@ git push origin feature/my-change
 #### Admin Commands (Bootstrap)
 ```bash
 # Initial setup
+gcloud auth login
 just setup-vars                      # Configure environment variables
 just create-projects --all           # Create GCP projects
 just enable-apis --all               # Enable required APIs
@@ -776,8 +646,8 @@ just create-service-accounts --all   # Create dual service accounts
 just setup-backend --all             # Create buckets and backend.tf files
 
 # Access management
-just grant-impersonation dev --user email@company.com
-just grant-impersonation dev --group team@company.com
+just grant-impersonation dev user:email@company.com
+just grant-impersonation dev group:team@company.com
 just grant-impersonation dev --user email@company.com --remove
 ```
 
@@ -796,12 +666,12 @@ just plan prod                       # Preview prod changes (no apply!)
 # Stage/Prod must go through CI/CD pipeline
 
 # Git workflow for stage/prod changes
-git checkout -b feature/my-change    # Create feature branch
+git checkout -b dev/my-change    # Create feature branch
 # Make your changes
-just plan stage                      # Verify changes locally
+just plan dev                      # Verify changes locally
 git add .
 git commit -m "feat: describe change"
-git push origin feature/my-change    # Push to trigger CI/CD
+git push origin dev/my-change    # Push to trigger CI/CD
 # Create PR in GitHub - CI/CD handles the rest
 
 # Status and debugging
