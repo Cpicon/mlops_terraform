@@ -1,0 +1,58 @@
+# Dev Environment Configuration
+# Copy this file to terraform.tfvars and update with your actual values
+
+# Basic project settings
+project_id = "mycompany-mlops-dev"
+region     = "us-central1"
+zone       = "us-central1-a"
+
+# BigQuery Dataset Access Control
+# Simply add email addresses to the appropriate list based on the access level needed
+
+# OWNER access - Full control over datasets
+# Typically for: Head of AI, Team Leads, Admins
+dataset_owners = [
+  "taki@abc.com",     # Taki - Head of AI team
+  # Add more owners here as needed
+]
+
+# WRITER access - Can read and modify data
+# Typically for: Data Scientists, ML Engineers
+dataset_writers = [
+  "john@abc.com",     # John - Data Scientist
+  "sarah@abc.com",    # Sarah - ML Engineer
+  # Add more writers here as needed
+]
+
+# READER access - Read-only access
+# Typically for: Analysts, Business Users
+dataset_readers = [
+  "alice@abc.com",    # Alice - Data Analyst
+  "bob@abc.com",      # Bob - Business Analyst
+  # Add more readers here as needed
+]
+
+# Google Groups for team-wide access (optional)
+# Leave as empty string if not using groups
+ml_team_group  = "ml-team@abc.com"     # All members get WRITER access
+analysts_group = "analysts@abc.com"    # All members get READER access
+
+# Service account for ML pipeline automation
+# NOTE: The ML pipeline service account is now automatically created by the service_accounts module
+# You don't need to set this variable anymore (kept for backward compatibility)
+# ml_pipeline_sa = ""  # Deprecated - automatically created
+
+# Additional custom access (optional)
+# Use this for special cases that don't fit the above categories
+additional_dataset_access = [
+  # Example: External contractor with limited access
+  # {
+  #   role          = "READER"
+  #   user_by_email = "contractor@external.com"
+  # },
+  # Example: Service account with specific role
+  # {
+  #   role          = "WRITER"
+  #   user_by_email = "special-sa@mycompany-mlops-dev.iam.gserviceaccount.com"
+  # }
+]
