@@ -62,9 +62,45 @@ module "bigquery" {
   ml_pipeline_sa     = local.bigquery_access.ml_pipeline_sa
 }
 
- module "gcs_bucket" {
-   source     = "../../modules/gcs-bucket"
-   bucket_name = "${var.project_id}-mlops-data"
-   region     = var.region
-   labels     = { "environment" = "dev" }
- }
+module "gcs_bucket" {
+  source      = "../../modules/gcs-bucket"
+  bucket_name = "${var.project_id}-mlops-data"
+  region      = var.region
+  labels = {
+    environment = "dev"
+    team        = "mlops"
+    managed_by  = "terraform"
+  }
+}
+
+# Vertex AI Workbench Instance for ML experimentation
+resource "google_notebooks_instance" "ml_workbench" {
+  name         = "${var.project_id}-ml-workbench"
+  location     = var.zone
+  machine_type = "n1-standard-4"
+
+  vm_image {
+    project      = "deeplearning-platform-release"
+    image_family = "tf-latest-cpu"
+  }
+
+  install_gpu_driver = false
+  boot_disk_type     = "PD_STANDARD"
+  boot_disk_size_gb  = 100
+
+  no_public_ip    = false
+  no_proxy_access = false
+
+  network = "default"
+  subnet  = "default"
+
+  labels = {
+    environment = "dev"
+    team        = "mlops"
+    managed_by  = "terraform"
+  }
+
+  metadata = {
+    terraform = "true"
+  }
+}
