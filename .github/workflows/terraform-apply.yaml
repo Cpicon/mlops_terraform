@@ -48,8 +48,8 @@ jobs:
       ENVIRONMENT: ${{ 
         github.event_name == 'workflow_dispatch' && github.event.inputs.environment ||
         github.event_name == 'schedule' && 'prod' ||
-        (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'main') && 'prod' ||
-        (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'develop') && 'stage' ||
+        (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main') && 'prod' ||
+        (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop') && 'stage' ||
         (github.event_name == 'pull_request' && github.event.action != 'closed' && github.base_ref == 'main') && 'prod' ||
         (github.event_name == 'pull_request' && github.event.action != 'closed' && github.base_ref == 'develop') && 'stage' ||
         (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev/')) && 'dev' ||
@@ -65,6 +65,17 @@ jobs:
         working-directory: environments/${{ env.ENVIRONMENT }}
     
     steps:
+      - name: Debug GitHub Event Context  
+        run: |
+          echo "=== Debug GitHub Event Context (Plan Job) ==="
+          echo "Event Name: ${{ github.event_name }}"
+          echo "Event Action: ${{ github.event.action }}"
+          echo "PR Merged: ${{ github.event.pull_request.merged }}"
+          echo "PR Base Ref: ${{ github.event.pull_request.base.ref }}"
+          echo "Base Ref: ${{ github.base_ref }}"
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo ""
+      
       - name: Checkout code
         uses: actions/checkout@v4
       
@@ -258,8 +269,8 @@ jobs:
     if: |
       needs.terraform-plan.outputs.plan-exitcode == '2' &&
       (
-        (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'main') ||
-        (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'develop') ||
+        (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main') ||
+        (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop') ||
         (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev/')) ||
         (github.event_name == 'workflow_dispatch') ||
         (github.event_name == 'schedule')
