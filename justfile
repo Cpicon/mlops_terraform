@@ -396,6 +396,176 @@ verify-wif ENV:
     echo "🔍 Verifying Workload Identity Federation for {{ENV}} environment..."
     ./scripts/verify-wif.sh -p "$PROJECT" -e {{ENV}}
 
+# Manage GitHub secrets for Terraform variables
+github-secrets OPERATION ENV:
+    #!/bin/bash
+    # Load environment variables
+    if [ -f .env-mlops ]; then
+        source .env-mlops
+    else
+        echo "❌ Environment variables not configured. Run: just setup-vars"
+        exit 1
+    fi
+    
+    # Validate operation
+    case "{{OPERATION}}" in
+        add|update|delete|list)
+            ;;
+        *)
+            echo "❌ Invalid operation: {{OPERATION}}"
+            echo "Valid operations: add, update, delete, list"
+            exit 1
+            ;;
+    esac
+    
+    # Handle --all flag
+    if [[ "{{ENV}}" == "--all" || "{{ENV}}" == "all" ]]; then
+        # Check terraform.tfvars exists for all environments
+        MISSING_TFVARS=()
+        for env in dev stage prod; do
+            if [ ! -f "environments/$env/terraform.tfvars" ]; then
+                MISSING_TFVARS+=("$env")
+            fi
+        done
+        
+        if [ ${#MISSING_TFVARS[@]} -gt 0 ]; then
+            echo "❌ terraform.tfvars missing for: ${MISSING_TFVARS[*]}"
+            echo "Please create them first with: just create-tfvars <env>"
+            exit 1
+        fi
+        
+        echo "🔐 Managing GitHub secrets for all environments..."
+        echo ""
+        
+        # Process each environment
+        for env in dev stage prod; do
+            echo "Processing $env environment..."
+            just _github_secrets_single {{OPERATION}} $env
+            echo ""
+        done
+        
+        echo "✅ GitHub secrets {{OPERATION}} completed for all environments!"
+    else
+        # Validate specific environment
+        just _check_env {{ENV}}
+        
+        # Check if terraform.tfvars exists
+        if [ ! -f "environments/{{ENV}}/terraform.tfvars" ]; then
+            echo "❌ terraform.tfvars not found in environments/{{ENV}}/"
+            echo "Please create it first with: just create-tfvars {{ENV}}"
+            exit 1
+        fi
+        
+        echo "🔐 Managing GitHub secrets for {{ENV}} environment..."
+        just _github_secrets_single {{OPERATION}} {{ENV}}
+    fi
+
+# Helper function for GitHub secrets management operations
+_github_secrets_single OPERATION ENV:
+    #!/bin/bash
+    source .env-mlops
+    
+    # Get project ID for environment (used in delete/list operations)
+    PROJECT=$(just _get_project {{ENV}})
+    
+    case "{{OPERATION}}" in
+        add|update)
+            # Use the setup-github-secrets.sh script for add/update
+            echo "📝 Setting GitHub secrets from terraform.tfvars..."
+            if [ -f "./scripts/setup-github-secrets.sh" ]; then
+                ./scripts/setup-github-secrets.sh -e {{ENV}}
+            else
+                echo "❌ setup-github-secrets.sh script not found"
+                echo "Please ensure scripts/setup-github-secrets.sh exists"
+                exit 1
+            fi
+            ;;
+        
+        delete)
+            # Delete all secrets for this environment
+            echo "🗑️  Deleting GitHub secrets for {{ENV}} environment..."
+            
+            # Check if gh CLI is available
+            if ! command -v gh &> /dev/null; then
+                echo "❌ GitHub CLI (gh) is not installed"
+                echo "Install it from: https://cli.github.com/"
+                exit 1
+            fi
+            
+            # GitHub stores secrets with uppercase names
+            ENV_UPPER=$(echo "{{ENV}}" | tr '[:lower:]' '[:upper:]')
+            
+            # List of secrets to delete
+            secrets=(
+                "TF_VAR_${ENV_UPPER}_PROJECT_ID"
+                "TF_VAR_${ENV_UPPER}_REGION"
+                "TF_VAR_${ENV_UPPER}_ZONE"
+                "TF_VAR_${ENV_UPPER}_DATASET_OWNERS"
+                "TF_VAR_${ENV_UPPER}_DATASET_WRITERS"
+                "TF_VAR_${ENV_UPPER}_DATASET_READERS"
+                "TF_VAR_${ENV_UPPER}_ML_TEAM_GROUP"
+                "TF_VAR_${ENV_UPPER}_ANALYSTS_GROUP"
+            )
+            
+            echo "⚠️  This will delete the following secrets:"
+            for secret in "${secrets[@]}"; do
+                echo "  - $secret"
+            done
+            
+            read -p "Are you sure? (y/N): " confirm
+            if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+                echo "❌ Operation cancelled"
+                exit 1
+            fi
+            
+            # Delete each secret
+            for secret in "${secrets[@]}"; do
+                echo "  Deleting $secret..."
+                if gh secret delete "$secret" --yes 2>/dev/null; then
+                    echo "  ✅ Deleted $secret"
+                else
+                    echo "  ℹ️  $secret not found or already deleted"
+                fi
+            done
+            
+            echo "✅ GitHub secrets deleted for {{ENV}} environment"
+            ;;
+        
+        list)
+            # List secrets for this environment
+            echo "📋 GitHub secrets for {{ENV}} environment:"
+            
+            # Check if gh CLI is available
+            if ! command -v gh &> /dev/null; then
+                echo "❌ GitHub CLI (gh) is not installed"
+                echo "Install it from: https://cli.github.com/"
+                exit 1
+            fi
+            
+            # GitHub stores secrets with uppercase names
+            ENV_UPPER=$(echo "{{ENV}}" | tr '[:lower:]' '[:upper:]')
+            
+            echo ""
+            echo "Expected secrets for {{ENV}} (stored as uppercase):"
+            echo "  - TF_VAR_${ENV_UPPER}_PROJECT_ID"
+            echo "  - TF_VAR_${ENV_UPPER}_REGION"
+            echo "  - TF_VAR_${ENV_UPPER}_ZONE"
+            echo "  - TF_VAR_${ENV_UPPER}_DATASET_OWNERS (JSON array, optional)"
+            echo "  - TF_VAR_${ENV_UPPER}_DATASET_WRITERS (JSON array, optional)"
+            echo "  - TF_VAR_${ENV_UPPER}_DATASET_READERS (JSON array, optional)"
+            echo "  - TF_VAR_${ENV_UPPER}_ML_TEAM_GROUP (optional)"
+            echo "  - TF_VAR_${ENV_UPPER}_ANALYSTS_GROUP (optional)"
+            echo ""
+            echo "Current repository secrets (filtered for {{ENV}}):"
+            gh secret list | grep "TF_VAR_${ENV_UPPER}_" || echo "  No secrets found for {{ENV}}"
+            ;;
+        
+        *)
+            echo "❌ Invalid operation: {{OPERATION}}"
+            exit 1
+            ;;
+    esac
+
 # Grant impersonation permissions to users/groups for service accounts
 grant-impersonation ENV MEMBER:
     #!/bin/bash
@@ -578,6 +748,36 @@ help COMMAND="":
             echo "  - WIF pool and provider exist"
             echo "  - Service account has correct permissions"
             ;;
+        "github-secrets")
+            echo "Manage GitHub Secrets for Terraform variables"
+            echo ""
+            echo "Usage: just github-secrets <operation> <env|--all>"
+            echo ""
+            echo "Operations:"
+            echo "  add     - Create or update secrets from terraform.tfvars"
+            echo "  update  - Same as add (create or update secrets)"
+            echo "  delete  - Remove all secrets for the environment"
+            echo "  list    - Show expected and current secrets"
+            echo ""
+            echo "Examples:"
+            echo "  just github-secrets add dev        # Set secrets for dev from tfvars"
+            echo "  just github-secrets update --all   # Update secrets for all environments"
+            echo "  just github-secrets delete stage   # Remove all stage secrets"
+            echo "  just github-secrets list prod      # List prod secrets"
+            echo ""
+            echo "Prerequisites:"
+            echo "  - GitHub CLI (gh) must be installed and authenticated"
+            echo "  - terraform.tfvars must exist for the environment(s)"
+            echo "  - You must have permission to manage repository secrets"
+            echo ""
+            echo "What this does:"
+            echo "  - Reads terraform.tfvars files from environments/<env>/"
+            echo "  - Converts HCL lists to JSON arrays automatically"
+            echo "  - Creates GitHub Secrets with TF_VAR_<env>_<VARIABLE> naming"
+            echo "  - These secrets are used by GitHub Actions workflows"
+            echo ""
+            echo "Note: Secrets are environment-specific to prevent conflicts"
+            ;;
         "setup")
             echo "Setup environments - specific environment or all environments"
             echo "Usage: just setup [env]"
@@ -615,6 +815,7 @@ help COMMAND="":
             echo "  just grant-impersonation <env> <member>   # Grant impersonation rights"
             echo "  just setup-wif <env> <org> <repo>        # Setup GitHub Actions auth"
             echo "  just verify-wif <env>                    # Verify WIF configuration"
+            echo "  just github-secrets <op> <env|--all>     # Manage GitHub Secrets for CI/CD"
             echo
             echo "💡 Infrastructure Approach:"
             echo "  • Each environment has its own Terraform configuration in environments/<env>/"

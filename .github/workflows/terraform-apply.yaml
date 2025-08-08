@@ -27,10 +27,7 @@ on:
         options:
           - dev
         default: dev
-  
-  # Scheduled run at 1 AM UTC every day
-  schedule:
-    - cron: '0 1 * * *'  # 1 AM UTC daily for prod
+
 
 # Environment variables
 env:
@@ -112,6 +109,18 @@ jobs:
       # Generate plan
       - name: Terraform Plan
         id: plan
+        env:
+          # Map GitHub Secrets to Terraform variables based on environment
+          # GitHub stores secrets with uppercase environment names
+          TF_VAR_project_id: ${{ secrets[format('TF_VAR_{0}_PROJECT_ID', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
+          TF_VAR_region: ${{ secrets[format('TF_VAR_{0}_REGION', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
+          TF_VAR_zone: ${{ secrets[format('TF_VAR_{0}_ZONE', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
+          # Optional variables - use empty defaults if not set
+          TF_VAR_dataset_owners: ${{ secrets[format('TF_VAR_{0}_DATASET_OWNERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
+          TF_VAR_dataset_writers: ${{ secrets[format('TF_VAR_{0}_DATASET_WRITERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
+          TF_VAR_dataset_readers: ${{ secrets[format('TF_VAR_{0}_DATASET_READERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
+          TF_VAR_ml_team_group: ${{ secrets[format('TF_VAR_{0}_ML_TEAM_GROUP', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '' }}
+          TF_VAR_analysts_group: ${{ secrets[format('TF_VAR_{0}_ANALYSTS_GROUP', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '' }}
         run: |
           set +e
           terraform plan -no-color -out=tfplan -detailed-exitcode
@@ -225,6 +234,18 @@ jobs:
       
       # Apply the plan
       - name: Terraform Apply
+        env:
+          # Map GitHub Secrets to Terraform variables based on environment
+          # GitHub stores secrets with uppercase environment names
+          TF_VAR_project_id: ${{ secrets[format('TF_VAR_{0}_PROJECT_ID', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
+          TF_VAR_region: ${{ secrets[format('TF_VAR_{0}_REGION', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
+          TF_VAR_zone: ${{ secrets[format('TF_VAR_{0}_ZONE', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
+          # Optional variables - use empty defaults if not set
+          TF_VAR_dataset_owners: ${{ secrets[format('TF_VAR_{0}_DATASET_OWNERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
+          TF_VAR_dataset_writers: ${{ secrets[format('TF_VAR_{0}_DATASET_WRITERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
+          TF_VAR_dataset_readers: ${{ secrets[format('TF_VAR_{0}_DATASET_READERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
+          TF_VAR_ml_team_group: ${{ secrets[format('TF_VAR_{0}_ML_TEAM_GROUP', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '' }}
+          TF_VAR_analysts_group: ${{ secrets[format('TF_VAR_{0}_ANALYSTS_GROUP', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '' }}
         run: |
           terraform apply -no-color -auto-approve tfplan
       
