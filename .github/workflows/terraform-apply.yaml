@@ -136,6 +136,42 @@ jobs:
       - name: Terraform Init
         id: init
         run: |
+          echo "=== Debug: Pre-init checks ==="
+          echo "Current directory: $(pwd)"
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo ""
+          
+          echo "=== Checking backend configuration ==="
+          if [ -f backend.tf ]; then
+            echo "backend.tf contents:"
+            cat backend.tf
+          else
+            echo "ERROR: backend.tf not found!"
+          fi
+          echo ""
+          
+          echo "=== Checking authentication ==="
+          echo "WIF_PROVIDER env var: ${WIF_PROVIDER}"
+          echo "SERVICE_ACCOUNT env var: ${SERVICE_ACCOUNT}"
+          echo "GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}"
+          echo ""
+          
+          echo "=== Testing gcloud authentication ==="
+          gcloud auth list
+          echo ""
+          
+          echo "=== Testing bucket access directly ==="
+          BUCKET_NAME=$(grep bucket backend.tf | cut -d'"' -f2)
+          echo "Bucket from backend.tf: $BUCKET_NAME"
+          echo "Attempting to list bucket contents..."
+          if gsutil ls "gs://${BUCKET_NAME}/" 2>&1; then
+            echo "✓ Bucket access successful"
+          else
+            echo "✗ Bucket access failed"
+          fi
+          echo ""
+          
+          echo "=== Running terraform init ==="
           terraform init -no-color
       
       # Validate configuration
@@ -329,6 +365,42 @@ jobs:
       # Initialize Terraform
       - name: Terraform Init
         run: |
+          echo "=== Debug: Pre-init checks (Apply Job) ==="
+          echo "Current directory: $(pwd)"
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo ""
+          
+          echo "=== Checking backend configuration ==="
+          if [ -f backend.tf ]; then
+            echo "backend.tf contents:"
+            cat backend.tf
+          else
+            echo "ERROR: backend.tf not found!"
+          fi
+          echo ""
+          
+          echo "=== Checking authentication ==="
+          echo "WIF_PROVIDER env var: ${WIF_PROVIDER}"
+          echo "SERVICE_ACCOUNT env var: ${SERVICE_ACCOUNT}"
+          echo "GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}"
+          echo ""
+          
+          echo "=== Testing gcloud authentication ==="
+          gcloud auth list
+          echo ""
+          
+          echo "=== Testing bucket access directly ==="
+          BUCKET_NAME=$(grep bucket backend.tf | cut -d'"' -f2)
+          echo "Bucket from backend.tf: $BUCKET_NAME"
+          echo "Attempting to list bucket contents..."
+          if gsutil ls "gs://${BUCKET_NAME}/" 2>&1; then
+            echo "✓ Bucket access successful"
+          else
+            echo "✗ Bucket access failed"
+          fi
+          echo ""
+          
+          echo "=== Running terraform init ==="
           terraform init -no-color
       
       # Apply the plan
