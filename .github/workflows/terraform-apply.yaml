@@ -3,6 +3,7 @@ name: Terraform Apply
 permissions:
   id-token: write
   contents: read
+  pull-requests: write  # Allow commenting on PRs
 ## ==============================================
 ## Section 1: SCHEDULING AND TRIGGERS
 ## ==============================================
