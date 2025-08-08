@@ -392,6 +392,11 @@ setup-wif GITHUB_ORG GITHUB_REPO:
     
     # Use the all-environments script
     ./scripts/setup-wif-all.sh -o {{GITHUB_ORG}} -r {{GITHUB_REPO}}
+    
+    # Grant WIF principals permission to impersonate service accounts
+    echo ""
+    echo "🔐 Granting WIF principals permission to impersonate service accounts..."
+    ./scripts/grant-wif-impersonation.sh
 
 # Verify Workload Identity Federation setup
 verify-wif ENV:
