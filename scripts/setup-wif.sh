@@ -125,15 +125,45 @@ echo -e "${GREEN}Service account configured for Workload Identity Federation${NC
 # Output the configuration
 echo ""
 echo -e "${GREEN}=== GitHub Actions Configuration ===${NC}"
-echo "Add these secrets to your GitHub repository:"
+echo -e "${YELLOW}IMPORTANT: Using Distributed WIF Architecture${NC}"
+echo "Each environment has its own WIF setup in its own project."
 echo ""
-echo "GCP_PROJECT_NUMBER: $PROJECT_NUMBER"
-echo "GCP_PROJECT_PREFIX: ${PROJECT_ID%-*}"
+
+# Convert environment to uppercase for secret name
+ENV_UPPER=$(echo "$ENVIRONMENT" | tr '[:lower:]' '[:upper:]')
+
+echo "For this ${ENVIRONMENT} environment, the project number will be stored as:"
+echo -e "${GREEN}GCP_${ENV_UPPER}_PROJECT_NUMBER${NC}: $PROJECT_NUMBER"
 echo ""
-echo "Workload Identity Provider:"
+
+echo "The project prefix (if not already set) should be:"
+echo -e "${GREEN}GCP_PROJECT_PREFIX${NC}: ${PROJECT_ID%-*}"
+echo ""
+
+echo "Workload Identity Provider path:"
 echo "projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/providers/${PROVIDER_ID}"
 echo ""
 echo "Service Account:"
 echo "$SA_EMAIL"
 echo ""
-echo -e "${GREEN}Setup complete!${NC}"
+
+echo -e "${YELLOW}Next Steps:${NC}"
+echo "1. Set up WIF for other environments (if not done):"
+if [[ "$ENVIRONMENT" != "dev" ]]; then
+    echo "   just setup-wif dev $GITHUB_ORG $GITHUB_REPO"
+fi
+if [[ "$ENVIRONMENT" != "stage" ]]; then
+    echo "   just setup-wif stage $GITHUB_ORG $GITHUB_REPO"
+fi
+if [[ "$ENVIRONMENT" != "prod" ]]; then
+    echo "   just setup-wif prod $GITHUB_ORG $GITHUB_REPO"
+fi
+echo ""
+echo "2. After setting up all environments, run:"
+echo -e "   ${GREEN}just setup-project-secrets${NC}"
+echo "   This will automatically set all project number secrets in GitHub"
+echo ""
+echo "3. Verify the setup:"
+echo "   just verify-wif $ENVIRONMENT"
+echo ""
+echo -e "${GREEN}Setup complete for $ENVIRONMENT environment!${NC}"

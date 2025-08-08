@@ -397,6 +397,8 @@ setup-wif ENV GITHUB_ORG GITHUB_REPO:
     PROJECT=$(just _get_project {{ENV}})
     
     echo "🔐 Setting up Workload Identity Federation for {{ENV}} environment..."
+    echo "📝 Note: This creates WIF in the {{ENV}} project for distributed WIF architecture"
+    echo "   Each environment has its own WIF configuration in its own project"
     ./scripts/setup-wif.sh -p "$PROJECT" -e {{ENV}} -o {{GITHUB_ORG}} -r {{GITHUB_REPO}}
 
 # Verify Workload Identity Federation setup
@@ -418,6 +420,23 @@ verify-wif ENV:
     
     echo "🔍 Verifying Workload Identity Federation for {{ENV}} environment..."
     ./scripts/verify-wif.sh -p "$PROJECT" -e {{ENV}}
+
+# Setup GitHub project number secrets for distributed WIF
+setup-project-secrets:
+    #!/bin/bash
+    echo "🔐 Setting up GitHub project number secrets for distributed WIF..."
+    echo "📝 This is required for the distributed WIF architecture"
+    echo "   where each environment has its own WIF in its own project"
+    echo ""
+    
+    # Check if setup script exists
+    if [ ! -f "./scripts/setup-project-number-secrets.sh" ]; then
+        echo "❌ setup-project-number-secrets.sh script not found"
+        exit 1
+    fi
+    
+    # Run the setup script
+    ./scripts/setup-project-number-secrets.sh
 
 # Manage GitHub secrets for Terraform variables
 github-secrets OPERATION ENV:
@@ -743,12 +762,17 @@ help COMMAND="":
             echo "  just setup-wif stage john-doe mlops-platform"
             echo ""
             echo "What this command does:"
-            echo "  1. Creates a Workload Identity Pool named 'github-pool'"
+            echo "  1. Creates a Workload Identity Pool named 'github-pool' IN THE SPECIFIED ENV PROJECT"
             echo "  2. Creates an OIDC Provider 'github-provider' that trusts GitHub"
             echo "  3. Grants the GitHub Actions service account permissions to:"
             echo "     - Impersonate terraform-<env>@ service account"
             echo "     - Impersonate terraform-<env>-resources@ service account"
             echo "  4. Configures trust relationship for specific repo and branches"
+            echo ""
+            echo "IMPORTANT: Distributed WIF Architecture"
+            echo "  - Each environment has its own WIF setup in its own project"
+            echo "  - You must run this command for EACH environment (dev, stage, prod)"
+            echo "  - After setting up WIF, run: just setup-project-secrets"
             echo ""
             echo "Prerequisites:"
             echo "  - Environment variables must be configured (run: just setup-vars)"
@@ -756,9 +780,9 @@ help COMMAND="":
             echo "  - You must have IAM admin permissions in the project"
             echo ""
             echo "After running this command:"
-            echo "  - Your GitHub Actions can authenticate to GCP without keys"
-            echo "  - Use the Workload Identity in your GitHub workflows"
-            echo "  - Run 'just verify-wif <env>' to check the configuration"
+            echo "  1. Run for all environments: just setup-wif stage <org> <repo>, etc."
+            echo "  2. Set project number secrets: just setup-project-secrets"
+            echo "  3. Verify setup: just verify-wif <env>"
             ;;
         "verify-wif")
             echo "Verify Workload Identity Federation setup"
@@ -770,6 +794,31 @@ help COMMAND="":
             echo "  - Required APIs are enabled"
             echo "  - WIF pool and provider exist"
             echo "  - Service account has correct permissions"
+            ;;
+        "setup-project-secrets")
+            echo "Setup GitHub project number secrets for distributed WIF"
+            echo ""
+            echo "Usage: just setup-project-secrets"
+            echo ""
+            echo "This command sets up environment-specific project number secrets:"
+            echo "  - GCP_DEV_PROJECT_NUMBER"
+            echo "  - GCP_STAGE_PROJECT_NUMBER"
+            echo "  - GCP_PROD_PROJECT_NUMBER"
+            echo "  - GCP_PROJECT_PREFIX (if not already set)"
+            echo ""
+            echo "Required for distributed WIF architecture where each environment"
+            echo "has its own WIF configuration in its own project."
+            echo ""
+            echo "Prerequisites:"
+            echo "  - .env-mlops file must exist (run: just setup-vars)"
+            echo "  - gcloud CLI must be authenticated"
+            echo "  - GitHub CLI (gh) must be authenticated"
+            echo "  - Projects must exist for all environments"
+            echo ""
+            echo "When to run this:"
+            echo "  - After setting up WIF for all environments"
+            echo "  - Before running GitHub Actions workflows"
+            echo "  - When switching from centralized to distributed WIF"
             ;;
         "github-secrets")
             echo "Manage GitHub Secrets for Terraform variables"
@@ -867,8 +916,9 @@ help COMMAND="":
             echo
             echo "🔐 Security & Authentication:"
             echo "  just grant-impersonation <env> <member>   # Grant impersonation rights"
-            echo "  just setup-wif <env> <org> <repo>        # Setup GitHub Actions auth"
+            echo "  just setup-wif <env> <org> <repo>        # Setup WIF for environment"
             echo "  just verify-wif <env>                    # Verify WIF configuration"
+            echo "  just setup-project-secrets               # Set project numbers for distributed WIF"
             echo "  just github-secrets <op> <env|--all>     # Manage GitHub Secrets for CI/CD"
             echo
             echo "💡 Infrastructure Approach:"
