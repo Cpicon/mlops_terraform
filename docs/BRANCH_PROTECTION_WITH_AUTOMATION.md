@@ -20,7 +20,7 @@ GitHub Actions bot (`github-actions[bot]`) cannot be added to branch protection 
 
 1. Go to your repository Settings → Secrets and variables → Actions
 2. Click "New repository secret"
-3. Name: `AUTOMATION_PAT`
+3. Name: `SYNC_TOKEN` (or any descriptive name)
 4. Value: Paste your PAT
 5. Click "Add secret"
 
@@ -33,7 +33,7 @@ The workflow needs to be updated to use the PAT instead of the default GITHUB_TO
   uses: actions/checkout@v4
   with:
     fetch-depth: 0
-    token: ${{ secrets.AUTOMATION_PAT }}  # Use PAT instead of GITHUB_TOKEN
+    token: ${{ secrets.SYNC_TOKEN }}  # Use PAT instead of GITHUB_TOKEN
 ```
 
 ### Step 4: Configure Branch Protection
