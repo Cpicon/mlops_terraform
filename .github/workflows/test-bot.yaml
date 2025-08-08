@@ -1,0 +1,16 @@
+name: Test GitHub Actions Bot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Test Bot
+        run: |
+          echo "This workflow establishes github-actions[bot] in the repository"
+          echo "After running this, the bot will appear in branch protection bypass options"
