@@ -2,6 +2,9 @@ name: Test GitHub Actions Bot
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - 'test-bot-trigger/**'
 
 jobs:
   test:
@@ -14,3 +17,5 @@ jobs:
         run: |
           echo "This workflow establishes github-actions[bot] in the repository"
           echo "After running this, the bot will appear in branch protection bypass options"
+          echo "Bot: github-actions[bot]"
+          echo "Workflow run: ${{ github.run_id }}"
