@@ -9,9 +9,11 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Default values
+# Hardcoded values (standardized across project to match GitHub Actions workflows)
 POOL_ID="github-pool"
 PROVIDER_ID="github-provider"
+
+# Parameters from command line
 GITHUB_ORG=""
 GITHUB_REPO=""
 PROJECT_ID=""

@@ -9,9 +9,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Default values
-POOL_ID="github-pool"
-PROVIDER_ID="github-provider"
+# Parameters from command line
 PROJECT_ID=""
 ENVIRONMENT=""
 
@@ -66,35 +64,37 @@ for api in "${APIS[@]}"; do
     fi
 done
 
-# Check workload identity pool
+# Check workload identity pool (hardcoded as 'github-pool')
 echo -e "\n${YELLOW}Checking Workload Identity Pool...${NC}"
-if gcloud iam workload-identity-pools describe "$POOL_ID" --location=global &>/dev/null; then
-    echo -e "  ✅ Workload Identity Pool '$POOL_ID' exists"
+if gcloud iam workload-identity-pools describe "github-pool" --location=global &>/dev/null; then
+    echo -e "  ✅ Workload Identity Pool 'github-pool' exists"
     
     # Get pool details
-    POOL_NAME=$(gcloud iam workload-identity-pools describe "$POOL_ID" \
+    POOL_NAME=$(gcloud iam workload-identity-pools describe "github-pool" \
         --location=global --format="value(name)")
     echo "     Full name: $POOL_NAME"
 else
-    echo -e "  ❌ Workload Identity Pool '$POOL_ID' NOT found"
+    echo -e "  ❌ Workload Identity Pool 'github-pool' NOT found"
+    echo "     Expected: github-pool (matching GitHub Actions workflow)"
 fi
 
-# Check workload identity provider
+# Check workload identity provider (hardcoded as 'github-provider')
 echo -e "\n${YELLOW}Checking Workload Identity Provider...${NC}"
-if gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
-    --workload-identity-pool="$POOL_ID" \
+if gcloud iam workload-identity-pools providers describe "github-provider" \
+    --workload-identity-pool="github-pool" \
     --location=global &>/dev/null; then
-    echo -e "  ✅ Workload Identity Provider '$PROVIDER_ID' exists"
+    echo -e "  ✅ Workload Identity Provider 'github-provider' exists"
     
     # Get provider details
-    PROVIDER_DETAILS=$(gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
-        --workload-identity-pool="$POOL_ID" \
+    PROVIDER_DETAILS=$(gcloud iam workload-identity-pools providers describe "github-provider" \
+        --workload-identity-pool="github-pool" \
         --location=global \
         --format="yaml(attributeCondition,attributeMapping,issuer)")
     echo "     Configuration:"
     echo "$PROVIDER_DETAILS" | sed 's/^/       /'
 else
-    echo -e "  ❌ Workload Identity Provider '$PROVIDER_ID' NOT found"
+    echo -e "  ❌ Workload Identity Provider 'github-provider' NOT found"
+    echo "     Expected: github-provider (matching GitHub Actions workflow)"
 fi
 
 # Check service account
@@ -119,23 +119,26 @@ else
     echo -e "  ❌ Service Account '$SA_EMAIL' NOT found"
 fi
 
-# Generate example GitHub Actions configuration
+# Generate example GitHub Actions configuration (matching terraform-apply.yaml)
 echo -e "\n${GREEN}=== GitHub Actions Configuration ===${NC}"
 echo "Use this configuration in your GitHub Actions workflow:"
 echo ""
-echo "```yaml"
+echo '```yaml'
 echo "- name: Authenticate to Google Cloud"
 echo "  uses: google-github-actions/auth@v2"
 echo "  with:"
-echo "    workload_identity_provider: 'projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/providers/${PROVIDER_ID}'"
+echo "    workload_identity_provider: 'projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'"
 echo "    service_account: '${SA_EMAIL}'"
-echo "```"
+echo '```'
 echo ""
 
 # Summary
 echo -e "${GREEN}=== Summary ===${NC}"
-echo "Workload Identity Provider Path:"
-echo "projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/providers/${PROVIDER_ID}"
+echo "Workload Identity Provider Path (matching GitHub Actions workflow):"
+echo "projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
 echo ""
 echo "Service Account:"
 echo "$SA_EMAIL"
+echo ""
+echo "Note: Pool ID 'github-pool' and Provider ID 'github-provider' are standardized"
+echo "across the project to match the GitHub Actions workflows."
