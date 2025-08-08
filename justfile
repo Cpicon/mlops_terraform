@@ -379,12 +379,9 @@ enable-apis ENV:
     just _check_env {{ENV}}
     just _enable_apis_single {{ENV}}
 
-# Setup Workload Identity Federation for GitHub Actions
-setup-wif ENV GITHUB_ORG GITHUB_REPO:
+# Setup Workload Identity Federation for GitHub Actions (all environments)
+setup-wif GITHUB_ORG GITHUB_REPO:
     #!/bin/bash
-    # Validate environment
-    just _check_env {{ENV}}
-    
     # Load environment variables
     if [ -f .env-mlops ]; then
         source .env-mlops
@@ -393,13 +390,8 @@ setup-wif ENV GITHUB_ORG GITHUB_REPO:
         exit 1
     fi
     
-    # Get project ID for environment
-    PROJECT=$(just _get_project {{ENV}})
-    
-    echo "🔐 Setting up Workload Identity Federation for {{ENV}} environment..."
-    echo "📝 Note: This creates WIF in the {{ENV}} project for distributed WIF architecture"
-    echo "   Each environment has its own WIF configuration in its own project"
-    ./scripts/setup-wif.sh -p "$PROJECT" -e {{ENV}} -o {{GITHUB_ORG}} -r {{GITHUB_REPO}}
+    # Use the all-environments script
+    ./scripts/setup-wif-all.sh -o {{GITHUB_ORG}} -r {{GITHUB_REPO}}
 
 # Verify Workload Identity Federation setup
 verify-wif ENV:
@@ -741,13 +733,9 @@ help COMMAND="":
         "setup-wif")
             echo "Set up Workload Identity Federation for GitHub Actions"
             echo ""
-            echo "Usage: just setup-wif <env> <github-org> <github-repo>"
+            echo "Usage: just setup-wif <github-org> <github-repo>"
             echo ""
             echo "Parameters:"
-            echo "  <env>         - Environment name (dev, stage, or prod)"
-            echo "                  Determines which GCP project to configure"
-            echo "                  Example: 'dev' uses the project from DEV_PROJECT env var"
-            echo ""
             echo "  <github-org>  - GitHub organization name (without github.com)"
             echo "                  This is your GitHub username or organization"
             echo "                  Example: 'mycompany' (not 'github.com/mycompany')"
@@ -757,32 +745,34 @@ help COMMAND="":
             echo "                  Example: 'infrastructure' (not 'mycompany/infrastructure')"
             echo ""
             echo "Examples:"
-            echo "  just setup-wif dev myorg myrepo"
-            echo "  just setup-wif prod acme-corp terraform-configs"
-            echo "  just setup-wif stage john-doe mlops-platform"
+            echo "  just setup-wif myorg myrepo"
+            echo "  just setup-wif acme-corp terraform-configs"
+            echo "  just setup-wif john-doe mlops-platform"
             echo ""
             echo "What this command does:"
-            echo "  1. Creates a Workload Identity Pool named 'github-pool' IN THE SPECIFIED ENV PROJECT"
-            echo "  2. Creates an OIDC Provider 'github-provider' that trusts GitHub"
-            echo "  3. Grants the GitHub Actions service account permissions to:"
-            echo "     - Impersonate terraform-<env>@ service account"
-            echo "     - Impersonate terraform-<env>-resources@ service account"
-            echo "  4. Configures trust relationship for specific repo and branches"
+            echo "  1. Sets up WIF for ALL environments (dev, stage, prod) at once"
+            echo "  2. Creates a Workload Identity Pool named 'github-pool' in each project"
+            echo "  3. Creates an OIDC Provider 'github-provider' that trusts GitHub"
+            echo "  4. Ensures all environments use the SAME GitHub repository configuration"
+            echo "  5. Grants GitHub Actions permissions to impersonate service accounts"
+            echo "  6. Prevents repository name mismatch issues across environments"
             echo ""
-            echo "IMPORTANT: Distributed WIF Architecture"
-            echo "  - Each environment has its own WIF setup in its own project"
-            echo "  - You must run this command for EACH environment (dev, stage, prod)"
-            echo "  - After setting up WIF, run: just setup-project-secrets"
+            echo "Benefits of this approach:"
+            echo "  - Consistency: All environments use the same repo configuration"
+            echo "  - Simplicity: One command sets up all environments"
+            echo "  - Reliability: Prevents attribute condition mismatches"
+            echo "  - Safety: Clean state by recreating providers if needed"
             echo ""
             echo "Prerequisites:"
             echo "  - Environment variables must be configured (run: just setup-vars)"
-            echo "  - GCP project must exist for the environment"
-            echo "  - You must have IAM admin permissions in the project"
+            echo "  - GCP projects must exist for all environments"
+            echo "  - Service accounts should exist (run: just create-service-accounts --all)"
+            echo "  - You must have IAM admin permissions in all projects"
             echo ""
             echo "After running this command:"
-            echo "  1. Run for all environments: just setup-wif stage <org> <repo>, etc."
-            echo "  2. Set project number secrets: just setup-project-secrets"
-            echo "  3. Verify setup: just verify-wif <env>"
+            echo "  1. Set project number secrets: just setup-project-secrets"
+            echo "  2. Verify setup: just verify-wif dev/stage/prod"
+            echo "  3. Test with GitHub Actions workflow"
             ;;
         "verify-wif")
             echo "Verify Workload Identity Federation setup"
@@ -916,7 +906,7 @@ help COMMAND="":
             echo
             echo "🔐 Security & Authentication:"
             echo "  just grant-impersonation <env> <member>   # Grant impersonation rights"
-            echo "  just setup-wif <env> <org> <repo>        # Setup WIF for environment"
+            echo "  just setup-wif <org> <repo>              # Setup WIF for ALL environments"
             echo "  just verify-wif <env>                    # Verify WIF configuration"
             echo "  just setup-project-secrets               # Set project numbers for distributed WIF"
             echo "  just github-secrets <op> <env|--all>     # Manage GitHub Secrets for CI/CD"
