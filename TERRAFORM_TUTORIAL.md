@@ -93,21 +93,19 @@ just grant-impersonation prod user:your-email@example.com
 Configure Workload Identity Federation to enable secure, keyless authentication from GitHub Actions to GCP:
 
 ```bash
-just setup-wif dev <github-org> <github-repo>
+just setup-wif <github-org> <github-repo>
 ```
 
 **Example:**
 If your repository is `https://github.com/johndoe/mlops-terraform`, you would run:
 ```bash
-just setup-wif dev johndoe mlops-terraform
+just setup-wif johndoe mlops-terraform
 ```
 Where:
-- `dev` = environment
 - `johndoe` = your GitHub username (acts as the organization for personal repos)
 - `mlops-terraform` = your repository name
 ```
 # Output will show:
-# ✅ dev environment variables validated
 # 🔐 Setting up Workload Identity Federation for dev environment...
 # Project Number: <long-number>
 # Creating Workload Identity Pool...
