@@ -188,12 +188,12 @@ jobs:
           TF_VAR_project_id: ${{ env.ENVIRONMENT == 'dev' && 'mycompany-mlops-dev' || env.ENVIRONMENT == 'stage' && 'mycompany-mlops-stage' || 'mycompany-mlops-prod' }}
           TF_VAR_region: ${{ env.ENVIRONMENT == 'dev' && 'us-central1' || env.ENVIRONMENT == 'stage' && 'us-central1' || 'us-central1' }}
           TF_VAR_zone: ${{ env.ENVIRONMENT == 'dev' && 'us-central1-a' || env.ENVIRONMENT == 'stage' && 'us-central1-a' || 'us-central1-a' }}
-          # Optional variables - use empty defaults if not set
-          TF_VAR_dataset_owners: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_OWNERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_OWNERS) || secrets.TF_VAR_PROD_DATASET_OWNERS || '[]' }}
-          TF_VAR_dataset_writers: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_WRITERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_WRITERS) || secrets.TF_VAR_PROD_DATASET_WRITERS || '[]' }}
-          TF_VAR_dataset_readers: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_READERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_READERS) || secrets.TF_VAR_PROD_DATASET_READERS || '[]' }}
-          TF_VAR_ml_team_group: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_ML_TEAM_GROUP) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_ML_TEAM_GROUP) || secrets.TF_VAR_PROD_ML_TEAM_GROUP || '' }}
-          TF_VAR_analysts_group: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_ANALYSTS_GROUP) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_ANALYSTS_GROUP) || secrets.TF_VAR_PROD_ANALYSTS_GROUP || '' }}
+          # TEMPORARY: Hardcoded empty values for optional variables
+          TF_VAR_dataset_owners: '[]'
+          TF_VAR_dataset_writers: '[]'
+          TF_VAR_dataset_readers: '[]'
+          TF_VAR_ml_team_group: ''
+          TF_VAR_analysts_group: ''
         run: |
           set +e
           terraform plan -no-color -out=tfplan -detailed-exitcode
@@ -410,12 +410,12 @@ jobs:
           TF_VAR_project_id: ${{ env.ENVIRONMENT == 'dev' && 'mycompany-mlops-dev' || env.ENVIRONMENT == 'stage' && 'mycompany-mlops-stage' || 'mycompany-mlops-prod' }}
           TF_VAR_region: ${{ env.ENVIRONMENT == 'dev' && 'us-central1' || env.ENVIRONMENT == 'stage' && 'us-central1' || 'us-central1' }}
           TF_VAR_zone: ${{ env.ENVIRONMENT == 'dev' && 'us-central1-a' || env.ENVIRONMENT == 'stage' && 'us-central1-a' || 'us-central1-a' }}
-          # Optional variables - use empty defaults if not set
-          TF_VAR_dataset_owners: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_OWNERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_OWNERS) || secrets.TF_VAR_PROD_DATASET_OWNERS || '[]' }}
-          TF_VAR_dataset_writers: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_WRITERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_WRITERS) || secrets.TF_VAR_PROD_DATASET_WRITERS || '[]' }}
-          TF_VAR_dataset_readers: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_READERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_READERS) || secrets.TF_VAR_PROD_DATASET_READERS || '[]' }}
-          TF_VAR_ml_team_group: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_ML_TEAM_GROUP) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_ML_TEAM_GROUP) || secrets.TF_VAR_PROD_ML_TEAM_GROUP || '' }}
-          TF_VAR_analysts_group: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_ANALYSTS_GROUP) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_ANALYSTS_GROUP) || secrets.TF_VAR_PROD_ANALYSTS_GROUP || '' }}
+          # TEMPORARY: Hardcoded empty values for optional variables
+          TF_VAR_dataset_owners: '[]'
+          TF_VAR_dataset_writers: '[]'
+          TF_VAR_dataset_readers: '[]'
+          TF_VAR_ml_team_group: ''
+          TF_VAR_analysts_group: ''
         run: |
           terraform apply -no-color -auto-approve tfplan
       
