@@ -75,18 +75,24 @@ jobs:
       ## ==============================================
       ## Section 2: GOOGLE CLOUD AUTHENTICATION WITH WIF
       ## ==============================================
+      # Set WIF provider based on environment
+      - name: Set WIF Provider
+        run: |
+          if [[ "${{ env.ENVIRONMENT }}" == "dev" ]]; then
+            echo "WIF_PROVIDER=projects/${{ secrets.GCP_DEV_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+          elif [[ "${{ env.ENVIRONMENT }}" == "stage" ]]; then
+            echo "WIF_PROVIDER=projects/${{ secrets.GCP_STAGE_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+          else
+            echo "WIF_PROVIDER=projects/${{ secrets.GCP_PROD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+          fi
+          echo "SERVICE_ACCOUNT=terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com" >> $GITHUB_ENV
+      
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          # Use environment-specific WIF configuration
-          # Each environment has its own WIF setup in its own project
-          workload_identity_provider: ${{ 
-            env.ENVIRONMENT == 'dev' && format('projects/{0}/locations/global/workloadIdentityPools/github-pool/providers/github-provider', secrets.GCP_DEV_PROJECT_NUMBER) ||
-            env.ENVIRONMENT == 'stage' && format('projects/{0}/locations/global/workloadIdentityPools/github-pool/providers/github-provider', secrets.GCP_STAGE_PROJECT_NUMBER) ||
-            format('projects/{0}/locations/global/workloadIdentityPools/github-pool/providers/github-provider', secrets.GCP_PROD_PROJECT_NUMBER)
-          }}
-          service_account: 'terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com'
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
           token_format: 'access_token'
       
       - name: Setup gcloud CLI
@@ -218,18 +224,24 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
       
       # Re-authenticate (new job needs fresh auth)
+      # Set WIF provider based on environment
+      - name: Set WIF Provider
+        run: |
+          if [[ "${{ env.ENVIRONMENT }}" == "dev" ]]; then
+            echo "WIF_PROVIDER=projects/${{ secrets.GCP_DEV_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+          elif [[ "${{ env.ENVIRONMENT }}" == "stage" ]]; then
+            echo "WIF_PROVIDER=projects/${{ secrets.GCP_STAGE_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+          else
+            echo "WIF_PROVIDER=projects/${{ secrets.GCP_PROD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+          fi
+          echo "SERVICE_ACCOUNT=terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com" >> $GITHUB_ENV
+      
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          # Use environment-specific WIF configuration
-          # Each environment has its own WIF setup in its own project
-          workload_identity_provider: ${{ 
-            env.ENVIRONMENT == 'dev' && format('projects/{0}/locations/global/workloadIdentityPools/github-pool/providers/github-provider', secrets.GCP_DEV_PROJECT_NUMBER) ||
-            env.ENVIRONMENT == 'stage' && format('projects/{0}/locations/global/workloadIdentityPools/github-pool/providers/github-provider', secrets.GCP_STAGE_PROJECT_NUMBER) ||
-            format('projects/{0}/locations/global/workloadIdentityPools/github-pool/providers/github-provider', secrets.GCP_PROD_PROJECT_NUMBER)
-          }}
-          service_account: 'terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com'
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
           token_format: 'access_token'
       
       - name: Setup gcloud CLI
