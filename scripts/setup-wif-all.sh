@@ -120,33 +120,53 @@ setup_wif_for_env() {
         echo "Workload Identity Pool already exists"
     fi
     
-    # Delete existing provider if it exists (to ensure clean state)
-    if gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
+    # Check if provider exists and its state
+    PROVIDER_STATE=$(gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
         --workload-identity-pool="$POOL_ID" \
-        --location=global &>/dev/null; then
-        echo "Deleting existing provider to ensure clean configuration..."
-        gcloud iam workload-identity-pools providers delete "$PROVIDER_ID" \
+        --location=global \
+        --format="value(state)" 2>/dev/null || echo "NOT_FOUND")
+    
+    if [[ "$PROVIDER_STATE" == "DELETED" ]]; then
+        echo "Provider is in DELETED state, undeleting..."
+        gcloud iam workload-identity-pools providers undelete "$PROVIDER_ID" \
             --workload-identity-pool="$POOL_ID" \
             --location=global \
-            --quiet || true
+            --quiet
+        sleep 3
         
-        # Wait for deletion to complete
-        echo "Waiting for provider deletion to complete..."
-        sleep 5
+        # Now update it with correct configuration
+        echo "Updating provider configuration..."
+        gcloud iam workload-identity-pools providers update-oidc "$PROVIDER_ID" \
+            --location=global \
+            --workload-identity-pool="$POOL_ID" \
+            --attribute-condition="assertion.repository == '${GITHUB_ORG}/${GITHUB_REPO}'" \
+            --quiet
+            
+    elif [[ "$PROVIDER_STATE" == "ACTIVE" ]]; then
+        echo "Provider exists and is active, updating configuration..."
+        gcloud iam workload-identity-pools providers update-oidc "$PROVIDER_ID" \
+            --location=global \
+            --workload-identity-pool="$POOL_ID" \
+            --attribute-condition="assertion.repository == '${GITHUB_ORG}/${GITHUB_REPO}'" \
+            --quiet
+            
+    elif [[ "$PROVIDER_STATE" == "NOT_FOUND" ]]; then
+        # Create new provider
+        echo "Creating new Workload Identity Provider..."
+        gcloud iam workload-identity-pools providers create-oidc "$PROVIDER_ID" \
+            --location=global \
+            --workload-identity-pool="$POOL_ID" \
+            --display-name="GitHub Provider" \
+            --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
+            --issuer-uri="https://token.actions.githubusercontent.com" \
+            --attribute-condition="assertion.repository == '${GITHUB_ORG}/${GITHUB_REPO}'" \
+            --quiet
+    else
+        echo "Warning: Unknown provider state: $PROVIDER_STATE"
+        return 1
     fi
     
-    # Create workload identity provider with correct repository
-    echo "Creating Workload Identity Provider..."
-    gcloud iam workload-identity-pools providers create-oidc "$PROVIDER_ID" \
-        --location=global \
-        --workload-identity-pool="$POOL_ID" \
-        --display-name="GitHub Provider" \
-        --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
-        --issuer-uri="https://token.actions.githubusercontent.com" \
-        --attribute-condition="assertion.repository == '${GITHUB_ORG}/${GITHUB_REPO}'" \
-        --quiet
-    
-    echo "Created Workload Identity Provider with repository: ${GITHUB_ORG}/${GITHUB_REPO}"
+    echo "Provider configured with repository: ${GITHUB_ORG}/${GITHUB_REPO}"
     
     # Configure service account permissions
     echo "Configuring service account permissions..."
