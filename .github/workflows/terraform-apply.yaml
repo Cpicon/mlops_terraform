@@ -75,6 +75,7 @@ jobs:
           echo "Base Ref: ${{ github.base_ref }}"
           echo "Environment: ${{ env.ENVIRONMENT }}"
           echo ""
+        working-directory: .
       
       - name: Checkout code
         uses: actions/checkout@v4
