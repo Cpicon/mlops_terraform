@@ -119,20 +119,23 @@ jobs:
       # Set WIF provider based on environment
       - name: Set WIF Provider
         run: |
+          # TEMPORARY: Hardcoded project numbers for debugging
           if [[ "${{ env.ENVIRONMENT }}" == "dev" ]]; then
-            echo "WIF_PROVIDER=projects/${{ secrets.GCP_DEV_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "WIF_PROVIDER=projects/4275271155/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "SERVICE_ACCOUNT=terraform-dev@mycompany-mlops-dev.iam.gserviceaccount.com" >> $GITHUB_ENV
           elif [[ "${{ env.ENVIRONMENT }}" == "stage" ]]; then
-            echo "WIF_PROVIDER=projects/${{ secrets.GCP_STAGE_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "WIF_PROVIDER=projects/729631533282/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "SERVICE_ACCOUNT=terraform-stage@mycompany-mlops-stage.iam.gserviceaccount.com" >> $GITHUB_ENV
           else
-            echo "WIF_PROVIDER=projects/${{ secrets.GCP_PROD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "WIF_PROVIDER=projects/391673587007/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "SERVICE_ACCOUNT=terraform-prod@mycompany-mlops-prod.iam.gserviceaccount.com" >> $GITHUB_ENV
           fi
-          echo "SERVICE_ACCOUNT=terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com" >> $GITHUB_ENV
           
           # Debug: Print the constructed values (safely)
           echo "Constructed WIF_PROVIDER path (will be used for auth):"
           echo "  Pool: github-pool"
           echo "  Provider: github-provider"
-          echo "Constructed SERVICE_ACCOUNT: terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com"
+          echo "Constructed SERVICE_ACCOUNT: $SERVICE_ACCOUNT"
       
       - name: Authenticate to Google Cloud
         id: auth
@@ -315,20 +318,23 @@ jobs:
       # Set WIF provider based on environment
       - name: Set WIF Provider
         run: |
+          # TEMPORARY: Hardcoded project numbers for debugging
           if [[ "${{ env.ENVIRONMENT }}" == "dev" ]]; then
-            echo "WIF_PROVIDER=projects/${{ secrets.GCP_DEV_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "WIF_PROVIDER=projects/4275271155/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "SERVICE_ACCOUNT=terraform-dev@mycompany-mlops-dev.iam.gserviceaccount.com" >> $GITHUB_ENV
           elif [[ "${{ env.ENVIRONMENT }}" == "stage" ]]; then
-            echo "WIF_PROVIDER=projects/${{ secrets.GCP_STAGE_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "WIF_PROVIDER=projects/729631533282/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "SERVICE_ACCOUNT=terraform-stage@mycompany-mlops-stage.iam.gserviceaccount.com" >> $GITHUB_ENV
           else
-            echo "WIF_PROVIDER=projects/${{ secrets.GCP_PROD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "WIF_PROVIDER=projects/391673587007/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "SERVICE_ACCOUNT=terraform-prod@mycompany-mlops-prod.iam.gserviceaccount.com" >> $GITHUB_ENV
           fi
-          echo "SERVICE_ACCOUNT=terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com" >> $GITHUB_ENV
           
           # Debug: Print the constructed values (safely)
           echo "Constructed WIF_PROVIDER path (will be used for auth):"
           echo "  Pool: github-pool"
           echo "  Provider: github-provider"
-          echo "Constructed SERVICE_ACCOUNT: terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com"
+          echo "Constructed SERVICE_ACCOUNT: $SERVICE_ACCOUNT"
       
       - name: Authenticate to Google Cloud
         id: auth
