@@ -1,0 +1,15 @@
+# Stage Environment Configuration
+# Copy this file to terraform.tfvars and update with your actual values
+
+# Basic project settings
+# The stage environment should use a separate GCP project from dev/prod
+project_id     = "mycompany-mlops-stage"
+project_number = "123456789012"  # Get this from GCP Console or 'gcloud projects describe'
+region         = "us-central1"
+zone           = "us-central1-a"
+
+# Stage-specific configuration notes:
+# - Stage environment typically mirrors production configuration
+# - Used for final testing before production deployments
+# - Should have restricted access compared to dev
+# - Consider using the same region as production for accurate testing

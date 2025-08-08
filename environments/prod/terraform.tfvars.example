@@ -1,0 +1,20 @@
+# Production Environment Configuration
+# Copy this file to terraform.tfvars and update with your actual values
+
+# IMPORTANT: Production configuration - handle with care!
+# - Ensure all values are thoroughly reviewed before applying
+# - Use separate service accounts and access controls from dev/stage
+# - Consider using different regions for disaster recovery
+
+# Basic project settings
+project_id     = "mycompany-mlops-prod"
+project_number = "234567890123"  # Get this from GCP Console or 'gcloud projects describe'
+region         = "us-central1"    # Consider multi-region for production workloads
+zone           = "us-central1-a"  # Consider multiple zones for high availability
+
+# Production-specific configuration notes:
+# - Use production-grade service accounts with minimal required permissions
+# - Enable audit logging and monitoring
+# - Implement proper backup and disaster recovery strategies
+# - Consider using Customer-Managed Encryption Keys (CMEK)
+# - Review and implement appropriate network security controls
