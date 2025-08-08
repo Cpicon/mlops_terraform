@@ -794,6 +794,7 @@ help COMMAND="":
             echo
             echo "🚀 Quick Start:"
             echo "  just setup-vars                # Configure environment variables"
+            echo "  just setup-branches            # Setup git branch structure (main/develop)"
             echo "  just create-projects --all     # Create GCP projects with billing (if needed)"
             echo "  just enable-apis --all         # Enable required APIs"
             echo "  just create-service-accounts --all  # Create service accounts"
@@ -1029,6 +1030,12 @@ setup-vars:
     else \
         source ./setup-environment-variables.sh; \
     fi
+
+# Setup branch structure for development workflow
+setup-branches:
+    #!/bin/bash
+    echo "🌳 Setting up branch structure..."
+    ./scripts/setup-branches.sh
 
 # Show current environment configuration
 show-config:

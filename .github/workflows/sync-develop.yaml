@@ -1,0 +1,149 @@
+name: Sync Develop with Main
+
+# Trigger when main branch is updated (production deployment)
+on:
+  push:
+    branches:
+      - main
+  
+  # Also allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  sync-develop:
+    name: "Sync develop branch with main"
+    runs-on: ubuntu-latest
+    
+    # Prevent infinite loop - don't run if this action pushed the changes
+    if: github.actor != 'github-actions[bot]'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for proper merging
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Sync develop with main
+        id: sync
+        run: |
+          echo "🔄 Starting sync of develop branch with main..."
+          
+          # Fetch latest changes
+          git fetch origin main:main
+          git fetch origin develop:develop
+          
+          # Checkout develop branch
+          git checkout develop
+          
+          # Try to merge main into develop
+          echo "📋 Attempting to merge main into develop..."
+          
+          # Check if develop is behind main
+          BEHIND=$(git rev-list --count develop..main)
+          
+          if [ "$BEHIND" -eq "0" ]; then
+            echo "✅ Develop branch is already up to date with main"
+            echo "sync_status=up-to-date" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "📊 Develop is $BEHIND commits behind main"
+          
+          # Attempt merge
+          if git merge main --no-edit; then
+            echo "✅ Successfully merged main into develop"
+            echo "sync_status=merged" >> $GITHUB_OUTPUT
+            
+            # Push the updated develop branch
+            git push origin develop
+            echo "✅ Pushed updated develop branch"
+          else
+            echo "❌ Merge conflict detected"
+            echo "sync_status=conflict" >> $GITHUB_OUTPUT
+            
+            # Abort the merge
+            git merge --abort
+            
+            # Create an issue for manual resolution
+            echo "needs_manual_resolution=true" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: Create Issue for Conflicts
+        if: failure() && steps.sync.outputs.needs_manual_resolution == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔴 Manual Sync Required: develop branch has conflicts with main',
+              body: `## Merge Conflict Detected
+            
+            The automatic sync between \`main\` and \`develop\` branches has failed due to merge conflicts.
+            
+            ### Action Required
+            
+            Please manually resolve the conflicts:
+            
+            \`\`\`bash
+            git checkout develop
+            git pull origin develop
+            git merge main
+            # Resolve conflicts
+            git add .
+            git commit -m "merge: Sync develop with main - resolve conflicts"
+            git push origin develop
+            \`\`\`
+            
+            ### Details
+            - **Triggered by**: Push to main branch
+            - **Commit**: ${context.sha}
+            - **Author**: @${context.actor}
+            - **Time**: ${new Date().toISOString()}
+            
+            ### Important
+            - The staging environment may be out of sync with production until this is resolved
+            - Please resolve this as soon as possible to maintain consistency
+            
+            cc: @${context.actor}`,
+              labels: ['urgent', 'merge-conflict', 'infrastructure']
+            });
+            
+            console.log(`Created issue #${issue.data.number}`);
+      
+      - name: Post Sync Summary
+        if: always()
+        run: |
+          echo "## Sync Summary" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.sync.outputs.sync_status }}" == "up-to-date" ]; then
+            echo "✅ **Status**: Develop branch is already synchronized with main" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.sync.outputs.sync_status }}" == "merged" ]; then
+            echo "✅ **Status**: Successfully synchronized develop with main" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Details" >> $GITHUB_STEP_SUMMARY
+            echo "- Main branch was merged into develop" >> $GITHUB_STEP_SUMMARY
+            echo "- No conflicts were found" >> $GITHUB_STEP_SUMMARY
+            echo "- Develop branch has been updated" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Status**: Sync failed due to merge conflicts" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Action Required" >> $GITHUB_STEP_SUMMARY
+            echo "- Manual conflict resolution needed" >> $GITHUB_STEP_SUMMARY
+            echo "- An issue has been created for tracking" >> $GITHUB_STEP_SUMMARY
+            echo "- Please resolve conflicts and push to develop branch" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Branch Status" >> $GITHUB_STEP_SUMMARY
+          echo "- **Main branch**: Production environment" >> $GITHUB_STEP_SUMMARY
+          echo "- **Develop branch**: Staging environment" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
