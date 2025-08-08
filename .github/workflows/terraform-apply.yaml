@@ -1,5 +1,8 @@
 name: Terraform Apply
 
+permissions:
+  id-token: write
+  contents: read
 ## ==============================================
 ## Section 1: SCHEDULING AND TRIGGERS
 ## ==============================================
