@@ -51,6 +51,18 @@ for env in dev stage prod; do
     # Define the WIF principal
     MEMBER="principalSet://iam.googleapis.com/projects/${PROJECT_NUM}/locations/global/workloadIdentityPools/github-pool/attribute.repository/${GITHUB_REPO}"
     
+    # Grant project-level serviceAccountTokenCreator role
+    echo "Granting project-level serviceAccountTokenCreator..."
+    if gcloud projects add-iam-policy-binding "$PROJECT" \
+        --member="$MEMBER" \
+        --role="roles/iam.serviceAccountTokenCreator" \
+        --condition=None \
+        --quiet 2>/dev/null; then
+        echo -e "  ${GREEN}✓${NC} Granted project-level serviceAccountTokenCreator"
+    else
+        echo -e "  ${YELLOW}⚠${NC} Already granted or error (continuing...)"
+    fi
+    
     # Grant permission to impersonate the state management SA
     SA_EMAIL="terraform-${env}@${PROJECT}.iam.gserviceaccount.com"
     echo "Granting serviceAccountTokenCreator on $SA_EMAIL..."
