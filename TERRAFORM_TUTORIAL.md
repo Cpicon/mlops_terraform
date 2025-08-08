@@ -97,7 +97,7 @@ just setup-wif <github-org> <github-repo>
 ```
 
 **Example:**
-If your repository is `https://github.com/johndoe/mlops-terraform`, you would run:
+If your repository is `https://github.com/johndoe/mlops-terraform`, you would run :
 ```bash
 just setup-wif johndoe mlops-terraform
 ```
