@@ -46,17 +46,39 @@ apply ENV:
     echo "  Working directory: environments/{{ENV}}"
     cd environments/{{ENV}}
     
-    # Production requires confirmation
-    if [[ "{{ENV}}" == "prod" || "{{ENV}}" == "production" ]]; then
-        echo "⚠️  You are about to apply changes to PRODUCTION!"
-        read -p "Are you sure? (yes/no): " confirm
-        if [[ "$confirm" != "yes" ]]; then
-            echo "❌ Operation cancelled"
-            exit 1
+    # Check if a plan file exists
+    if [ -f "tfplan" ]; then
+        echo "📋 Found existing plan file (tfplan)"
+        echo "  Generated from: just plan {{ENV}}"
+        
+        # Show plan summary
+        echo ""
+        echo "📊 Plan summary:"
+        terraform show -no-color tfplan 2>/dev/null | tail -20 || true
+        echo ""
+        
+        # Production requires confirmation
+        if [[ "{{ENV}}" == "prod" || "{{ENV}}" == "production" ]]; then
+            echo "⚠️  You are about to apply changes to PRODUCTION!"
+            read -p "Apply the planned changes? (yes/no): " confirm
+            if [[ "$confirm" != "yes" ]]; then
+                echo "❌ Operation cancelled"
+                exit 1
+            fi
+            echo "✅ Applying saved plan..."
+            terraform apply tfplan
+        else
+            echo "✅ Applying saved plan..."
+            terraform apply -auto-approve tfplan
         fi
-        terraform apply
+        
+        # Clean up the plan file after successful apply
+        echo "🧹 Cleaning up plan file..."
+        rm -f tfplan
     else
-        terraform apply -auto-approve
+        echo "⚠️  No plan file found. Generating a new plan..."
+        echo "💡 Tip: Run 'just plan {{ENV}}' first to review changes"
+        echo ""
     fi
 
 # Clean up generated files
@@ -67,6 +89,7 @@ clean:
     rm -f environments/*/terraform.tfvars
     rm -f environments/*/backend.tf
     rm -f environments/*/backend.conf  # Clean up old .conf files
+    rm -f environments/*/tfplan  # Clean up plan files
     rm -f environments/*/.terraform.lock.hcl
     rm -rf environments/*/.terraform/
     rm -f .terraform.lock.hcl
@@ -778,6 +801,36 @@ help COMMAND="":
             echo ""
             echo "Note: Secrets are environment-specific to prevent conflicts"
             ;;
+        "plan")
+            echo "Generate Terraform execution plan"
+            echo "Usage: just plan <env>"
+            echo ""
+            echo "Creates a plan file (tfplan) that can be applied later"
+            echo ""
+            echo "Examples:"
+            echo "  just plan dev      # Generate plan for development"
+            echo "  just plan stage    # Generate plan for staging"
+            echo "  just plan prod     # Generate plan for production"
+            echo ""
+            echo "The plan file is saved as environments/<env>/tfplan"
+            echo "This file is used by 'just apply' to ensure exact changes"
+            ;;
+        "apply")
+            echo "Apply Terraform changes"
+            echo "Usage: just apply <env>"
+            echo ""
+            echo "Applies changes from saved plan file or generates new plan"
+            echo ""
+            echo "Examples:"
+            echo "  just plan dev && just apply dev   # Plan then apply (recommended)"
+            echo "  just apply dev                     # Apply using existing plan or generate new"
+            echo ""
+            echo "Behavior:"
+            echo "  - If tfplan exists: Apply the saved plan"
+            echo "  - If no tfplan: Generate and apply new plan"
+            echo "  - Production always requires confirmation"
+            echo "  - Plan file is deleted after successful apply"
+            ;;
         "setup")
             echo "Setup environments - specific environment or all environments"
             echo "Usage: just setup [env]"
@@ -809,8 +862,8 @@ help COMMAND="":
             echo "  just create-service-accounts <env|--all>  # Create service accounts"
             echo "  just download-sa-keys <env|--all>         # Download SA keys (deprecated)"
             echo "  just init <env>                 # Initialize Terraform in environment directory"
-            echo "  just plan <env>                 # Plan changes with env-specific vars"
-            echo "  just apply <env>                # Apply changes with env-specific vars"
+            echo "  just plan <env>                 # Plan changes and save to tfplan file"
+            echo "  just apply <env>                # Apply changes from tfplan (or generate new)"
             echo
             echo "🔐 Security & Authentication:"
             echo "  just grant-impersonation <env> <member>   # Grant impersonation rights"
@@ -913,7 +966,7 @@ plan ENV:
     echo "📋 Planning Terraform for {{ENV}} environment..."
     echo "  Working directory: environments/{{ENV}}"
     cd environments/{{ENV}}
-    terraform plan
+    terraform plan -out=tfplan
 
 # Setup backend for specific environment or all environments
 setup-backend ENV:
