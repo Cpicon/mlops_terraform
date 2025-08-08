@@ -69,35 +69,60 @@ Navigate to: **Settings → Branches → Add rule**
 
 ❌ **Do not allow deletions**
 
-### Bypass List (IMPORTANT for automated sync):
-Add to bypass list:
-- `github-actions[bot]` - Required for automated sync from main
-- Repository administrators (optional)
+### Bypass List Configuration:
 
-**Note**: If `github-actions[bot]` doesn't appear in the search:
-1. Run any GitHub Action first: `gh workflow run test-bot.yaml`
-2. Or manually type `github-actions[bot]` and press Enter
-3. The bot will be added even if not in suggestions
+**IMPORTANT**: GitHub Actions bot (`github-actions[bot]`) cannot be added to branch protection bypass lists. This is a known GitHub limitation. Use the PAT solution below instead.
 
-### 3. Configure GitHub Actions Bot Permissions
+### 3. Configure Automated Workflow Permissions
 
-For the sync workflow to work properly, ensure:
+Since `github-actions[bot]` cannot be added to bypass lists, you must use a Personal Access Token (PAT) for automated workflows to push to protected branches.
 
-1. **GitHub Actions has write permissions:**
-   - Go to **Settings → Actions → General**
-   - Under "Workflow permissions", select:
-     - ✅ Read and write permissions
-     - ✅ Allow GitHub Actions to create and approve pull requests
+#### Step 1: Create a Personal Access Token (PAT)
 
-2. **Create a Personal Access Token (PAT) for advanced operations (if needed):**
-   - Go to **Settings → Developer settings → Personal access tokens → Tokens (classic)**
-   - Generate new token with scopes:
-     - `repo` (Full control of private repositories)
-     - `workflow` (Update GitHub Action workflows)
-   
-   Then add as repository secret:
-   - Go to **Settings → Secrets and variables → Actions**
-   - Add secret named `SYNC_TOKEN` with the PAT value
+1. Go to your GitHub **Settings → Developer settings → Personal access tokens → Tokens (classic)**
+2. Click **"Generate new token (classic)"**
+3. Give it a descriptive name: `mlops-terraform-sync`
+4. Select scopes:
+   - ✅ `repo` (Full control of private repositories)
+   - ✅ `workflow` (Update GitHub Action workflows)
+5. Generate and copy the token
+
+#### Step 2: Add PAT as Repository Secret
+
+1. Go to your repository **Settings → Secrets and variables → Actions**
+2. Click **"New repository secret"**
+3. Name: `SYNC_TOKEN`
+4. Value: Paste your PAT
+5. Click **"Add secret"**
+
+#### Step 3: Add Yourself to Bypass List
+
+Since the PAT represents your account:
+1. Go to **Settings → Branches → Edit rule** for `develop`
+2. In the **"Restrict who can push to matching branches"** or **"Bypass list"** section:
+   - Click **"Add"** or **"Add bypass"**
+   - Search for and add your GitHub username
+   - This allows workflows using your PAT to bypass protection
+
+#### Step 4: Verify Workflow Configuration
+
+The sync workflow (`.github/workflows/sync-develop.yaml`) should use the SYNC_TOKEN:
+```yaml
+- name: Checkout repository
+  uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+    token: ${{ secrets.SYNC_TOKEN }}  # Uses PAT instead of GITHUB_TOKEN
+```
+
+#### Alternative: GitHub Actions Write Permissions (Limited)
+
+If you don't need full branch protection bypass:
+1. Go to **Settings → Actions → General**
+2. Under "Workflow permissions", select:
+   - ✅ Read and write permissions
+   - ✅ Allow GitHub Actions to create and approve pull requests
+3. Note: This won't bypass branch protection but allows basic operations
 
 ## Setting Up Automated Sync
 
@@ -107,7 +132,7 @@ The sync workflow (`.github/workflows/sync-develop.yaml`) is automatically trigg
 - Commits are pushed to `main` branch
 - Manual workflow dispatch
 
-No additional setup needed if using `GITHUB_TOKEN`.
+**Important**: The workflow requires `SYNC_TOKEN` to bypass branch protection. Without it, the sync will fail on protected branches.
 
 ### 2. Configure Notifications (Optional)
 
@@ -179,9 +204,10 @@ git push origin dev/test-feature
 ### Issue: Sync workflow fails with permission denied
 
 **Solution:**
-1. Check GitHub Actions permissions (Settings → Actions → General)
-2. Ensure "Read and write permissions" is selected
-3. If using PAT, verify token hasn't expired
+1. Verify `SYNC_TOKEN` secret is properly configured
+2. Check that your user account (PAT owner) is in the bypass list for the `develop` branch
+3. Ensure PAT hasn't expired and has correct scopes (`repo` and `workflow`)
+4. Verify the workflow is using `token: ${{ secrets.SYNC_TOKEN }}` in checkout step
 
 ### Issue: Cannot merge to protected branch
 
@@ -216,7 +242,9 @@ git push origin develop
 
 ## Related Documentation
 
+- [Branch Protection with Automation](./BRANCH_PROTECTION_WITH_AUTOMATION.md)
 - [Branch Management Strategy](./BRANCH_MANAGEMENT_STRATEGY.md)
 - [Terraform Tutorial](../TERRAFORM_TUTORIAL.md)
 - [GitHub Actions Workflows](../.github/workflows/)
 - [GitHub Secrets Setup](./GITHUB_SECRETS_SETUP.md)
+- [GitHub Community Discussion on Bot Limitations](https://github.com/orgs/community/discussions/13836)
