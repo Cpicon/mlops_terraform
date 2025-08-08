@@ -48,10 +48,10 @@ jobs:
       ENVIRONMENT: ${{ 
         github.event_name == 'workflow_dispatch' && github.event.inputs.environment ||
         github.event_name == 'schedule' && 'prod' ||
-        (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'main') && 'prod' ||
-        (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'develop') && 'stage' ||
-        (github.event_name == 'pull_request' && !github.event.pull_request.merged && github.base_ref == 'main') && 'prod' ||
-        (github.event_name == 'pull_request' && !github.event.pull_request.merged && github.base_ref == 'develop') && 'stage' ||
+        (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'main') && 'prod' ||
+        (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'develop') && 'stage' ||
+        (github.event_name == 'pull_request' && github.event.action != 'closed' && github.base_ref == 'main') && 'prod' ||
+        (github.event_name == 'pull_request' && github.event.action != 'closed' && github.base_ref == 'develop') && 'stage' ||
         (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev/')) && 'dev' ||
         'dev' }}
     
@@ -258,8 +258,8 @@ jobs:
     if: |
       needs.terraform-plan.outputs.plan-exitcode == '2' &&
       (
-        (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'main') ||
-        (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'develop') ||
+        (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'main') ||
+        (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'develop') ||
         (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev/')) ||
         (github.event_name == 'workflow_dispatch') ||
         (github.event_name == 'schedule')

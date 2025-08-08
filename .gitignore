@@ -46,6 +46,9 @@ environments/*/terraform.tfvars
 environments/*/backend.tf
 environments/*/.terraform/
 environments/*/*.tfstate*
+environments/*/tfplan
+*.tfplan
+tfplan
 
 # Project-specific documentation
 CURSOR.md
