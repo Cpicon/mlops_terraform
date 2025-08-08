@@ -75,6 +75,47 @@ jobs:
       ## ==============================================
       ## Section 2: GOOGLE CLOUD AUTHENTICATION WITH WIF
       ## ==============================================
+      # Debug: Check if secrets are properly set
+      - name: Debug WIF Configuration
+        run: |
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "Checking if project number secret exists..."
+          if [[ "${{ env.ENVIRONMENT }}" == "dev" ]]; then
+            if [[ -z "${{ secrets.GCP_DEV_PROJECT_NUMBER }}" ]]; then
+              echo "ERROR: GCP_DEV_PROJECT_NUMBER secret is not set or empty!"
+              exit 1
+            else
+              PROJECT_NUM="${{ secrets.GCP_DEV_PROJECT_NUMBER }}"
+              echo "GCP_DEV_PROJECT_NUMBER is set (length: ${#PROJECT_NUM})"
+              echo "Project Number starts with: ${PROJECT_NUM:0:4}***"
+            fi
+          elif [[ "${{ env.ENVIRONMENT }}" == "stage" ]]; then
+            if [[ -z "${{ secrets.GCP_STAGE_PROJECT_NUMBER }}" ]]; then
+              echo "ERROR: GCP_STAGE_PROJECT_NUMBER secret is not set or empty!"
+              exit 1
+            else
+              PROJECT_NUM="${{ secrets.GCP_STAGE_PROJECT_NUMBER }}"
+              echo "GCP_STAGE_PROJECT_NUMBER is set (length: ${#PROJECT_NUM})"
+              echo "Project Number starts with: ${PROJECT_NUM:0:4}***"
+            fi
+          else
+            if [[ -z "${{ secrets.GCP_PROD_PROJECT_NUMBER }}" ]]; then
+              echo "ERROR: GCP_PROD_PROJECT_NUMBER secret is not set or empty!"
+              exit 1
+            else
+              PROJECT_NUM="${{ secrets.GCP_PROD_PROJECT_NUMBER }}"
+              echo "GCP_PROD_PROJECT_NUMBER is set (length: ${#PROJECT_NUM})"
+              echo "Project Number starts with: ${PROJECT_NUM:0:4}***"
+            fi
+          fi
+          
+          if [[ -z "${{ secrets.GCP_PROJECT_PREFIX }}" ]]; then
+            echo "ERROR: GCP_PROJECT_PREFIX secret is not set or empty!"
+            exit 1
+          else
+            echo "GCP_PROJECT_PREFIX is set: ${{ secrets.GCP_PROJECT_PREFIX }}"
+          fi
+      
       # Set WIF provider based on environment
       - name: Set WIF Provider
         run: |
@@ -86,6 +127,12 @@ jobs:
             echo "WIF_PROVIDER=projects/${{ secrets.GCP_PROD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
           fi
           echo "SERVICE_ACCOUNT=terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com" >> $GITHUB_ENV
+          
+          # Debug: Print the constructed values (safely)
+          echo "Constructed WIF_PROVIDER path (will be used for auth):"
+          echo "  Pool: github-pool"
+          echo "  Provider: github-provider"
+          echo "Constructed SERVICE_ACCOUNT: terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com"
       
       - name: Authenticate to Google Cloud
         id: auth
@@ -224,6 +271,47 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
       
       # Re-authenticate (new job needs fresh auth)
+      # Debug: Check if secrets are properly set
+      - name: Debug WIF Configuration (Apply Job)
+        run: |
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "Checking if project number secret exists..."
+          if [[ "${{ env.ENVIRONMENT }}" == "dev" ]]; then
+            if [[ -z "${{ secrets.GCP_DEV_PROJECT_NUMBER }}" ]]; then
+              echo "ERROR: GCP_DEV_PROJECT_NUMBER secret is not set or empty!"
+              exit 1
+            else
+              PROJECT_NUM="${{ secrets.GCP_DEV_PROJECT_NUMBER }}"
+              echo "GCP_DEV_PROJECT_NUMBER is set (length: ${#PROJECT_NUM})"
+              echo "Project Number starts with: ${PROJECT_NUM:0:4}***"
+            fi
+          elif [[ "${{ env.ENVIRONMENT }}" == "stage" ]]; then
+            if [[ -z "${{ secrets.GCP_STAGE_PROJECT_NUMBER }}" ]]; then
+              echo "ERROR: GCP_STAGE_PROJECT_NUMBER secret is not set or empty!"
+              exit 1
+            else
+              PROJECT_NUM="${{ secrets.GCP_STAGE_PROJECT_NUMBER }}"
+              echo "GCP_STAGE_PROJECT_NUMBER is set (length: ${#PROJECT_NUM})"
+              echo "Project Number starts with: ${PROJECT_NUM:0:4}***"
+            fi
+          else
+            if [[ -z "${{ secrets.GCP_PROD_PROJECT_NUMBER }}" ]]; then
+              echo "ERROR: GCP_PROD_PROJECT_NUMBER secret is not set or empty!"
+              exit 1
+            else
+              PROJECT_NUM="${{ secrets.GCP_PROD_PROJECT_NUMBER }}"
+              echo "GCP_PROD_PROJECT_NUMBER is set (length: ${#PROJECT_NUM})"
+              echo "Project Number starts with: ${PROJECT_NUM:0:4}***"
+            fi
+          fi
+          
+          if [[ -z "${{ secrets.GCP_PROJECT_PREFIX }}" ]]; then
+            echo "ERROR: GCP_PROJECT_PREFIX secret is not set or empty!"
+            exit 1
+          else
+            echo "GCP_PROJECT_PREFIX is set: ${{ secrets.GCP_PROJECT_PREFIX }}"
+          fi
+      
       # Set WIF provider based on environment
       - name: Set WIF Provider
         run: |
@@ -235,6 +323,12 @@ jobs:
             echo "WIF_PROVIDER=projects/${{ secrets.GCP_PROD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
           fi
           echo "SERVICE_ACCOUNT=terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com" >> $GITHUB_ENV
+          
+          # Debug: Print the constructed values (safely)
+          echo "Constructed WIF_PROVIDER path (will be used for auth):"
+          echo "  Pool: github-pool"
+          echo "  Provider: github-provider"
+          echo "Constructed SERVICE_ACCOUNT: terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com"
       
       - name: Authenticate to Google Cloud
         id: auth
