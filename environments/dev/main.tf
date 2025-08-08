@@ -61,3 +61,10 @@ module "bigquery" {
   data_viewer_groups = local.bigquery_access.data_viewer_groups
   ml_pipeline_sa     = local.bigquery_access.ml_pipeline_sa
 }
+
+ module "gcs_bucket" {
+   source     = "../../modules/gcs-bucket"
+   bucket_name = "${var.project_id}-mlops-data"
+   region     = var.region
+   labels     = { "environment" = "dev" }
+ }

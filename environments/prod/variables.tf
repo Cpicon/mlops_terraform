@@ -12,8 +12,3 @@ variable "zone" {
   description = "The GCP zone"
   type        = string
 }
-
-variable "project_number" {
-  description = "The GCP project number"
-  type        = string
-}

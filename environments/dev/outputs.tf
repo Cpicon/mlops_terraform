@@ -19,6 +19,12 @@ output "bigquery_transcripts_table_self_link" {
   value       = module.bigquery.transcripts_table_self_link
 }
 
+# GCS Bucket Outputs
+output "gcs_bucket_url" {
+  description = "The URL of the GCS bucket"
+  value       = module.gcs_bucket.bucket_url
+}
+
 # Access Control Outputs
 output "configured_access_summary" {
   description = "Summary of configured access levels"

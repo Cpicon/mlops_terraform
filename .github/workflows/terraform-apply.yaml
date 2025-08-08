@@ -1,5 +1,9 @@
 name: Terraform Apply
 
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write  # Allow commenting on PRs
 ## ==============================================
 ## Section 1: SCHEDULING AND TRIGGERS
 ## ==============================================
@@ -72,12 +76,47 @@ jobs:
       ## ==============================================
       ## Section 2: GOOGLE CLOUD AUTHENTICATION WITH WIF
       ## ==============================================
+      # Debug: Check environment (TEMPORARY: hardcoded values)
+      - name: Debug WIF Configuration
+        run: |
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "TEMPORARY: Using hardcoded project numbers for debugging"
+          if [[ "${{ env.ENVIRONMENT }}" == "dev" ]]; then
+            echo "Dev Project Number: 4275271155"
+          elif [[ "${{ env.ENVIRONMENT }}" == "stage" ]]; then
+            echo "Stage Project Number: 729631533282"
+          else
+            echo "Prod Project Number: 391673587007"
+          fi
+          echo "Project Prefix: mycompany-mlops"
+      
+      # Set WIF provider based on environment
+      - name: Set WIF Provider
+        run: |
+          # TEMPORARY: Hardcoded project numbers for debugging
+          if [[ "${{ env.ENVIRONMENT }}" == "dev" ]]; then
+            echo "WIF_PROVIDER=projects/4275271155/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "SERVICE_ACCOUNT=terraform-dev@mycompany-mlops-dev.iam.gserviceaccount.com" >> $GITHUB_ENV
+          elif [[ "${{ env.ENVIRONMENT }}" == "stage" ]]; then
+            echo "WIF_PROVIDER=projects/729631533282/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "SERVICE_ACCOUNT=terraform-stage@mycompany-mlops-stage.iam.gserviceaccount.com" >> $GITHUB_ENV
+          else
+            echo "WIF_PROVIDER=projects/391673587007/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "SERVICE_ACCOUNT=terraform-prod@mycompany-mlops-prod.iam.gserviceaccount.com" >> $GITHUB_ENV
+          fi
+          
+          # Debug: Print the constructed values (safely)
+          echo "Constructed WIF_PROVIDER path (will be used for auth):"
+          echo "  Pool: github-pool"
+          echo "  Provider: github-provider"
+          echo "Constructed SERVICE_ACCOUNT: $SERVICE_ACCOUNT"
+      
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: 'projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-          service_account: 'terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com'
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
           token_format: 'access_token'
       
       - name: Setup gcloud CLI
@@ -98,6 +137,42 @@ jobs:
       - name: Terraform Init
         id: init
         run: |
+          echo "=== Debug: Pre-init checks ==="
+          echo "Current directory: $(pwd)"
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo ""
+          
+          echo "=== Checking backend configuration ==="
+          if [ -f backend.tf ]; then
+            echo "backend.tf contents:"
+            cat backend.tf
+          else
+            echo "ERROR: backend.tf not found!"
+          fi
+          echo ""
+          
+          echo "=== Checking authentication ==="
+          echo "WIF_PROVIDER env var: ${WIF_PROVIDER}"
+          echo "SERVICE_ACCOUNT env var: ${SERVICE_ACCOUNT}"
+          echo "GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}"
+          echo ""
+          
+          echo "=== Testing gcloud authentication ==="
+          gcloud auth list
+          echo ""
+          
+          echo "=== Testing bucket access directly ==="
+          BUCKET_NAME=$(grep bucket backend.tf | cut -d'"' -f2)
+          echo "Bucket from backend.tf: $BUCKET_NAME"
+          echo "Attempting to list bucket contents..."
+          if gsutil ls "gs://${BUCKET_NAME}/" 2>&1; then
+            echo "✓ Bucket access successful"
+          else
+            echo "✗ Bucket access failed"
+          fi
+          echo ""
+          
+          echo "=== Running terraform init ==="
           terraform init -no-color
       
       # Validate configuration
@@ -110,17 +185,16 @@ jobs:
       - name: Terraform Plan
         id: plan
         env:
-          # Map GitHub Secrets to Terraform variables based on environment
-          # GitHub stores secrets with uppercase environment names
-          TF_VAR_project_id: ${{ secrets[format('TF_VAR_{0}_PROJECT_ID', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
-          TF_VAR_region: ${{ secrets[format('TF_VAR_{0}_REGION', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
-          TF_VAR_zone: ${{ secrets[format('TF_VAR_{0}_ZONE', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
-          # Optional variables - use empty defaults if not set
-          TF_VAR_dataset_owners: ${{ secrets[format('TF_VAR_{0}_DATASET_OWNERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
-          TF_VAR_dataset_writers: ${{ secrets[format('TF_VAR_{0}_DATASET_WRITERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
-          TF_VAR_dataset_readers: ${{ secrets[format('TF_VAR_{0}_DATASET_READERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
-          TF_VAR_ml_team_group: ${{ secrets[format('TF_VAR_{0}_ML_TEAM_GROUP', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '' }}
-          TF_VAR_analysts_group: ${{ secrets[format('TF_VAR_{0}_ANALYSTS_GROUP', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '' }}
+          # TEMPORARY: Hardcoded values for debugging
+          TF_VAR_project_id: ${{ env.ENVIRONMENT == 'dev' && 'mycompany-mlops-dev' || env.ENVIRONMENT == 'stage' && 'mycompany-mlops-stage' || 'mycompany-mlops-prod' }}
+          TF_VAR_region: ${{ env.ENVIRONMENT == 'dev' && 'us-central1' || env.ENVIRONMENT == 'stage' && 'us-central1' || 'us-central1' }}
+          TF_VAR_zone: ${{ env.ENVIRONMENT == 'dev' && 'us-central1-a' || env.ENVIRONMENT == 'stage' && 'us-central1-a' || 'us-central1-a' }}
+          # TEMPORARY: Hardcoded empty values for optional variables
+          TF_VAR_dataset_owners: '[]'
+          TF_VAR_dataset_writers: '[]'
+          TF_VAR_dataset_readers: '[]'
+          TF_VAR_ml_team_group: ''
+          TF_VAR_analysts_group: ''
         run: |
           set +e
           terraform plan -no-color -out=tfplan -detailed-exitcode
@@ -209,12 +283,47 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
       
       # Re-authenticate (new job needs fresh auth)
+      # Debug: Check environment (TEMPORARY: hardcoded values)
+      - name: Debug WIF Configuration (Apply Job)
+        run: |
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "TEMPORARY: Using hardcoded project numbers for debugging"
+          if [[ "${{ env.ENVIRONMENT }}" == "dev" ]]; then
+            echo "Dev Project Number: 4275271155"
+          elif [[ "${{ env.ENVIRONMENT }}" == "stage" ]]; then
+            echo "Stage Project Number: 729631533282"
+          else
+            echo "Prod Project Number: 391673587007"
+          fi
+          echo "Project Prefix: mycompany-mlops"
+      
+      # Set WIF provider based on environment
+      - name: Set WIF Provider
+        run: |
+          # TEMPORARY: Hardcoded project numbers for debugging
+          if [[ "${{ env.ENVIRONMENT }}" == "dev" ]]; then
+            echo "WIF_PROVIDER=projects/4275271155/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "SERVICE_ACCOUNT=terraform-dev@mycompany-mlops-dev.iam.gserviceaccount.com" >> $GITHUB_ENV
+          elif [[ "${{ env.ENVIRONMENT }}" == "stage" ]]; then
+            echo "WIF_PROVIDER=projects/729631533282/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "SERVICE_ACCOUNT=terraform-stage@mycompany-mlops-stage.iam.gserviceaccount.com" >> $GITHUB_ENV
+          else
+            echo "WIF_PROVIDER=projects/391673587007/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_ENV
+            echo "SERVICE_ACCOUNT=terraform-prod@mycompany-mlops-prod.iam.gserviceaccount.com" >> $GITHUB_ENV
+          fi
+          
+          # Debug: Print the constructed values (safely)
+          echo "Constructed WIF_PROVIDER path (will be used for auth):"
+          echo "  Pool: github-pool"
+          echo "  Provider: github-provider"
+          echo "Constructed SERVICE_ACCOUNT: $SERVICE_ACCOUNT"
+      
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: 'projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-          service_account: 'terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com'
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
           token_format: 'access_token'
       
       - name: Setup gcloud CLI
@@ -230,22 +339,57 @@ jobs:
       # Initialize Terraform
       - name: Terraform Init
         run: |
+          echo "=== Debug: Pre-init checks (Apply Job) ==="
+          echo "Current directory: $(pwd)"
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo ""
+          
+          echo "=== Checking backend configuration ==="
+          if [ -f backend.tf ]; then
+            echo "backend.tf contents:"
+            cat backend.tf
+          else
+            echo "ERROR: backend.tf not found!"
+          fi
+          echo ""
+          
+          echo "=== Checking authentication ==="
+          echo "WIF_PROVIDER env var: ${WIF_PROVIDER}"
+          echo "SERVICE_ACCOUNT env var: ${SERVICE_ACCOUNT}"
+          echo "GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}"
+          echo ""
+          
+          echo "=== Testing gcloud authentication ==="
+          gcloud auth list
+          echo ""
+          
+          echo "=== Testing bucket access directly ==="
+          BUCKET_NAME=$(grep bucket backend.tf | cut -d'"' -f2)
+          echo "Bucket from backend.tf: $BUCKET_NAME"
+          echo "Attempting to list bucket contents..."
+          if gsutil ls "gs://${BUCKET_NAME}/" 2>&1; then
+            echo "✓ Bucket access successful"
+          else
+            echo "✗ Bucket access failed"
+          fi
+          echo ""
+          
+          echo "=== Running terraform init ==="
           terraform init -no-color
       
       # Apply the plan
       - name: Terraform Apply
         env:
-          # Map GitHub Secrets to Terraform variables based on environment
-          # GitHub stores secrets with uppercase environment names
-          TF_VAR_project_id: ${{ secrets[format('TF_VAR_{0}_PROJECT_ID', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
-          TF_VAR_region: ${{ secrets[format('TF_VAR_{0}_REGION', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
-          TF_VAR_zone: ${{ secrets[format('TF_VAR_{0}_ZONE', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
-          # Optional variables - use empty defaults if not set
-          TF_VAR_dataset_owners: ${{ secrets[format('TF_VAR_{0}_DATASET_OWNERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
-          TF_VAR_dataset_writers: ${{ secrets[format('TF_VAR_{0}_DATASET_WRITERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
-          TF_VAR_dataset_readers: ${{ secrets[format('TF_VAR_{0}_DATASET_READERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
-          TF_VAR_ml_team_group: ${{ secrets[format('TF_VAR_{0}_ML_TEAM_GROUP', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '' }}
-          TF_VAR_analysts_group: ${{ secrets[format('TF_VAR_{0}_ANALYSTS_GROUP', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '' }}
+          # TEMPORARY: Hardcoded values for debugging
+          TF_VAR_project_id: ${{ env.ENVIRONMENT == 'dev' && 'mycompany-mlops-dev' || env.ENVIRONMENT == 'stage' && 'mycompany-mlops-stage' || 'mycompany-mlops-prod' }}
+          TF_VAR_region: ${{ env.ENVIRONMENT == 'dev' && 'us-central1' || env.ENVIRONMENT == 'stage' && 'us-central1' || 'us-central1' }}
+          TF_VAR_zone: ${{ env.ENVIRONMENT == 'dev' && 'us-central1-a' || env.ENVIRONMENT == 'stage' && 'us-central1-a' || 'us-central1-a' }}
+          # TEMPORARY: Hardcoded empty values for optional variables
+          TF_VAR_dataset_owners: '[]'
+          TF_VAR_dataset_writers: '[]'
+          TF_VAR_dataset_readers: '[]'
+          TF_VAR_ml_team_group: ''
+          TF_VAR_analysts_group: ''
         run: |
           terraform apply -no-color -auto-approve tfplan
       

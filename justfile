@@ -46,17 +46,39 @@ apply ENV:
     echo "  Working directory: environments/{{ENV}}"
     cd environments/{{ENV}}
     
-    # Production requires confirmation
-    if [[ "{{ENV}}" == "prod" || "{{ENV}}" == "production" ]]; then
-        echo "⚠️  You are about to apply changes to PRODUCTION!"
-        read -p "Are you sure? (yes/no): " confirm
-        if [[ "$confirm" != "yes" ]]; then
-            echo "❌ Operation cancelled"
-            exit 1
+    # Check if a plan file exists
+    if [ -f "tfplan" ]; then
+        echo "📋 Found existing plan file (tfplan)"
+        echo "  Generated from: just plan {{ENV}}"
+        
+        # Show plan summary
+        echo ""
+        echo "📊 Plan summary:"
+        terraform show -no-color tfplan 2>/dev/null | tail -20 || true
+        echo ""
+        
+        # Production requires confirmation
+        if [[ "{{ENV}}" == "prod" || "{{ENV}}" == "production" ]]; then
+            echo "⚠️  You are about to apply changes to PRODUCTION!"
+            read -p "Apply the planned changes? (yes/no): " confirm
+            if [[ "$confirm" != "yes" ]]; then
+                echo "❌ Operation cancelled"
+                exit 1
+            fi
+            echo "✅ Applying saved plan..."
+            terraform apply tfplan
+        else
+            echo "✅ Applying saved plan..."
+            terraform apply -auto-approve tfplan
         fi
-        terraform apply
+        
+        # Clean up the plan file after successful apply
+        echo "🧹 Cleaning up plan file..."
+        rm -f tfplan
     else
-        terraform apply -auto-approve
+        echo "⚠️  No plan file found. Generating a new plan..."
+        echo "💡 Tip: Run 'just plan {{ENV}}' first to review changes"
+        echo ""
     fi
 
 # Clean up generated files
@@ -67,6 +89,7 @@ clean:
     rm -f environments/*/terraform.tfvars
     rm -f environments/*/backend.tf
     rm -f environments/*/backend.conf  # Clean up old .conf files
+    rm -f environments/*/tfplan  # Clean up plan files
     rm -f environments/*/.terraform.lock.hcl
     rm -rf environments/*/.terraform/
     rm -f .terraform.lock.hcl
@@ -356,12 +379,9 @@ enable-apis ENV:
     just _check_env {{ENV}}
     just _enable_apis_single {{ENV}}
 
-# Setup Workload Identity Federation for GitHub Actions
-setup-wif ENV GITHUB_ORG GITHUB_REPO:
+# Setup Workload Identity Federation for GitHub Actions (all environments)
+setup-wif GITHUB_ORG GITHUB_REPO:
     #!/bin/bash
-    # Validate environment
-    just _check_env {{ENV}}
-    
     # Load environment variables
     if [ -f .env-mlops ]; then
         source .env-mlops
@@ -370,11 +390,13 @@ setup-wif ENV GITHUB_ORG GITHUB_REPO:
         exit 1
     fi
     
-    # Get project ID for environment
-    PROJECT=$(just _get_project {{ENV}})
+    # Use the all-environments script
+    ./scripts/setup-wif-all.sh -o {{GITHUB_ORG}} -r {{GITHUB_REPO}}
     
-    echo "🔐 Setting up Workload Identity Federation for {{ENV}} environment..."
-    ./scripts/setup-wif.sh -p "$PROJECT" -e {{ENV}} -o {{GITHUB_ORG}} -r {{GITHUB_REPO}}
+    # Grant WIF principals permission to impersonate service accounts
+    echo ""
+    echo "🔐 Granting WIF principals permission to impersonate service accounts..."
+    ./scripts/grant-wif-impersonation.sh
 
 # Verify Workload Identity Federation setup
 verify-wif ENV:
@@ -395,6 +417,23 @@ verify-wif ENV:
     
     echo "🔍 Verifying Workload Identity Federation for {{ENV}} environment..."
     ./scripts/verify-wif.sh -p "$PROJECT" -e {{ENV}}
+
+# Setup GitHub project number secrets for distributed WIF
+setup-project-secrets:
+    #!/bin/bash
+    echo "🔐 Setting up GitHub project number secrets for distributed WIF..."
+    echo "📝 This is required for the distributed WIF architecture"
+    echo "   where each environment has its own WIF in its own project"
+    echo ""
+    
+    # Check if setup script exists
+    if [ ! -f "./scripts/setup-project-number-secrets.sh" ]; then
+        echo "❌ setup-project-number-secrets.sh script not found"
+        exit 1
+    fi
+    
+    # Run the setup script
+    ./scripts/setup-project-number-secrets.sh
 
 # Manage GitHub secrets for Terraform variables
 github-secrets OPERATION ENV:
@@ -699,13 +738,9 @@ help COMMAND="":
         "setup-wif")
             echo "Set up Workload Identity Federation for GitHub Actions"
             echo ""
-            echo "Usage: just setup-wif <env> <github-org> <github-repo>"
+            echo "Usage: just setup-wif <github-org> <github-repo>"
             echo ""
             echo "Parameters:"
-            echo "  <env>         - Environment name (dev, stage, or prod)"
-            echo "                  Determines which GCP project to configure"
-            echo "                  Example: 'dev' uses the project from DEV_PROJECT env var"
-            echo ""
             echo "  <github-org>  - GitHub organization name (without github.com)"
             echo "                  This is your GitHub username or organization"
             echo "                  Example: 'mycompany' (not 'github.com/mycompany')"
@@ -715,27 +750,34 @@ help COMMAND="":
             echo "                  Example: 'infrastructure' (not 'mycompany/infrastructure')"
             echo ""
             echo "Examples:"
-            echo "  just setup-wif dev myorg myrepo"
-            echo "  just setup-wif prod acme-corp terraform-configs"
-            echo "  just setup-wif stage john-doe mlops-platform"
+            echo "  just setup-wif myorg myrepo"
+            echo "  just setup-wif acme-corp terraform-configs"
+            echo "  just setup-wif john-doe mlops-platform"
             echo ""
             echo "What this command does:"
-            echo "  1. Creates a Workload Identity Pool named 'github-pool'"
-            echo "  2. Creates an OIDC Provider 'github-provider' that trusts GitHub"
-            echo "  3. Grants the GitHub Actions service account permissions to:"
-            echo "     - Impersonate terraform-<env>@ service account"
-            echo "     - Impersonate terraform-<env>-resources@ service account"
-            echo "  4. Configures trust relationship for specific repo and branches"
+            echo "  1. Sets up WIF for ALL environments (dev, stage, prod) at once"
+            echo "  2. Creates a Workload Identity Pool named 'github-pool' in each project"
+            echo "  3. Creates an OIDC Provider 'github-provider' that trusts GitHub"
+            echo "  4. Ensures all environments use the SAME GitHub repository configuration"
+            echo "  5. Grants GitHub Actions permissions to impersonate service accounts"
+            echo "  6. Prevents repository name mismatch issues across environments"
+            echo ""
+            echo "Benefits of this approach:"
+            echo "  - Consistency: All environments use the same repo configuration"
+            echo "  - Simplicity: One command sets up all environments"
+            echo "  - Reliability: Prevents attribute condition mismatches"
+            echo "  - Safety: Clean state by recreating providers if needed"
             echo ""
             echo "Prerequisites:"
             echo "  - Environment variables must be configured (run: just setup-vars)"
-            echo "  - GCP project must exist for the environment"
-            echo "  - You must have IAM admin permissions in the project"
+            echo "  - GCP projects must exist for all environments"
+            echo "  - Service accounts should exist (run: just create-service-accounts --all)"
+            echo "  - You must have IAM admin permissions in all projects"
             echo ""
             echo "After running this command:"
-            echo "  - Your GitHub Actions can authenticate to GCP without keys"
-            echo "  - Use the Workload Identity in your GitHub workflows"
-            echo "  - Run 'just verify-wif <env>' to check the configuration"
+            echo "  1. Set project number secrets: just setup-project-secrets"
+            echo "  2. Verify setup: just verify-wif dev/stage/prod"
+            echo "  3. Test with GitHub Actions workflow"
             ;;
         "verify-wif")
             echo "Verify Workload Identity Federation setup"
@@ -747,6 +789,31 @@ help COMMAND="":
             echo "  - Required APIs are enabled"
             echo "  - WIF pool and provider exist"
             echo "  - Service account has correct permissions"
+            ;;
+        "setup-project-secrets")
+            echo "Setup GitHub project number secrets for distributed WIF"
+            echo ""
+            echo "Usage: just setup-project-secrets"
+            echo ""
+            echo "This command sets up environment-specific project number secrets:"
+            echo "  - GCP_DEV_PROJECT_NUMBER"
+            echo "  - GCP_STAGE_PROJECT_NUMBER"
+            echo "  - GCP_PROD_PROJECT_NUMBER"
+            echo "  - GCP_PROJECT_PREFIX (if not already set)"
+            echo ""
+            echo "Required for distributed WIF architecture where each environment"
+            echo "has its own WIF configuration in its own project."
+            echo ""
+            echo "Prerequisites:"
+            echo "  - .env-mlops file must exist (run: just setup-vars)"
+            echo "  - gcloud CLI must be authenticated"
+            echo "  - GitHub CLI (gh) must be authenticated"
+            echo "  - Projects must exist for all environments"
+            echo ""
+            echo "When to run this:"
+            echo "  - After setting up WIF for all environments"
+            echo "  - Before running GitHub Actions workflows"
+            echo "  - When switching from centralized to distributed WIF"
             ;;
         "github-secrets")
             echo "Manage GitHub Secrets for Terraform variables"
@@ -777,6 +844,36 @@ help COMMAND="":
             echo "  - These secrets are used by GitHub Actions workflows"
             echo ""
             echo "Note: Secrets are environment-specific to prevent conflicts"
+            ;;
+        "plan")
+            echo "Generate Terraform execution plan"
+            echo "Usage: just plan <env>"
+            echo ""
+            echo "Creates a plan file (tfplan) that can be applied later"
+            echo ""
+            echo "Examples:"
+            echo "  just plan dev      # Generate plan for development"
+            echo "  just plan stage    # Generate plan for staging"
+            echo "  just plan prod     # Generate plan for production"
+            echo ""
+            echo "The plan file is saved as environments/<env>/tfplan"
+            echo "This file is used by 'just apply' to ensure exact changes"
+            ;;
+        "apply")
+            echo "Apply Terraform changes"
+            echo "Usage: just apply <env>"
+            echo ""
+            echo "Applies changes from saved plan file or generates new plan"
+            echo ""
+            echo "Examples:"
+            echo "  just plan dev && just apply dev   # Plan then apply (recommended)"
+            echo "  just apply dev                     # Apply using existing plan or generate new"
+            echo ""
+            echo "Behavior:"
+            echo "  - If tfplan exists: Apply the saved plan"
+            echo "  - If no tfplan: Generate and apply new plan"
+            echo "  - Production always requires confirmation"
+            echo "  - Plan file is deleted after successful apply"
             ;;
         "setup")
             echo "Setup environments - specific environment or all environments"
@@ -809,13 +906,14 @@ help COMMAND="":
             echo "  just create-service-accounts <env|--all>  # Create service accounts"
             echo "  just download-sa-keys <env|--all>         # Download SA keys (deprecated)"
             echo "  just init <env>                 # Initialize Terraform in environment directory"
-            echo "  just plan <env>                 # Plan changes with env-specific vars"
-            echo "  just apply <env>                # Apply changes with env-specific vars"
+            echo "  just plan <env>                 # Plan changes and save to tfplan file"
+            echo "  just apply <env>                # Apply changes from tfplan (or generate new)"
             echo
             echo "🔐 Security & Authentication:"
             echo "  just grant-impersonation <env> <member>   # Grant impersonation rights"
-            echo "  just setup-wif <env> <org> <repo>        # Setup GitHub Actions auth"
+            echo "  just setup-wif <org> <repo>              # Setup WIF for ALL environments"
             echo "  just verify-wif <env>                    # Verify WIF configuration"
+            echo "  just setup-project-secrets               # Set project numbers for distributed WIF"
             echo "  just github-secrets <op> <env|--all>     # Manage GitHub Secrets for CI/CD"
             echo
             echo "💡 Infrastructure Approach:"
@@ -913,7 +1011,7 @@ plan ENV:
     echo "📋 Planning Terraform for {{ENV}} environment..."
     echo "  Working directory: environments/{{ENV}}"
     cd environments/{{ENV}}
-    terraform plan
+    terraform plan -out=tfplan
 
 # Setup backend for specific environment or all environments
 setup-backend ENV:

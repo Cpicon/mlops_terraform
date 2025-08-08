@@ -13,7 +13,9 @@ variable "zone" {
   type        = string
 }
 
-variable "project_number" {
-  description = "The GCP project number"
-  type        = string
+# User access configurations with roles
+variable "dataset_owners" {
+  description = "List of user emails who should have OWNER access to BigQuery datasets"
+  type        = list(string)
+  default     = []
 }
