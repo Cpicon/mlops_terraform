@@ -27,7 +27,7 @@ jobs:
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       
       - name: Sync develop with main
         id: sync
@@ -55,8 +55,15 @@ jobs:
           
           echo "📊 Develop is $BEHIND commits behind main"
           
-          # Attempt merge
-          if git merge main --no-edit; then
+          # Attempt merge with a merge commit
+          MERGE_MSG="chore(sync): Merge main into develop
+          
+          Automated sync to keep develop branch up to date with main.
+          This ensures staging environment has all production changes.
+          
+          Co-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          
+          if git merge main --no-ff -m "$MERGE_MSG"; then
             echo "✅ Successfully merged main into develop"
             echo "sync_status=merged" >> $GITHUB_OUTPUT
             
