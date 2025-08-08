@@ -81,7 +81,11 @@ jobs:
         with:
           # Use environment-specific WIF configuration
           # Each environment has its own WIF setup in its own project
-          workload_identity_provider: 'projects/${{ secrets[format('GCP_{0}_PROJECT_NUMBER', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          workload_identity_provider: ${{ 
+            env.ENVIRONMENT == 'dev' && format('projects/{0}/locations/global/workloadIdentityPools/github-pool/providers/github-provider', secrets.GCP_DEV_PROJECT_NUMBER) ||
+            env.ENVIRONMENT == 'stage' && format('projects/{0}/locations/global/workloadIdentityPools/github-pool/providers/github-provider', secrets.GCP_STAGE_PROJECT_NUMBER) ||
+            format('projects/{0}/locations/global/workloadIdentityPools/github-pool/providers/github-provider', secrets.GCP_PROD_PROJECT_NUMBER)
+          }}
           service_account: 'terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com'
           token_format: 'access_token'
       
@@ -117,15 +121,15 @@ jobs:
         env:
           # Map GitHub Secrets to Terraform variables based on environment
           # GitHub stores secrets with uppercase environment names
-          TF_VAR_project_id: ${{ secrets[format('TF_VAR_{0}_PROJECT_ID', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
-          TF_VAR_region: ${{ secrets[format('TF_VAR_{0}_REGION', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
-          TF_VAR_zone: ${{ secrets[format('TF_VAR_{0}_ZONE', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
+          TF_VAR_project_id: ${{ env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_PROJECT_ID || env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_PROJECT_ID || secrets.TF_VAR_PROD_PROJECT_ID }}
+          TF_VAR_region: ${{ env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_REGION || env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_REGION || secrets.TF_VAR_PROD_REGION }}
+          TF_VAR_zone: ${{ env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_ZONE || env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_ZONE || secrets.TF_VAR_PROD_ZONE }}
           # Optional variables - use empty defaults if not set
-          TF_VAR_dataset_owners: ${{ secrets[format('TF_VAR_{0}_DATASET_OWNERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
-          TF_VAR_dataset_writers: ${{ secrets[format('TF_VAR_{0}_DATASET_WRITERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
-          TF_VAR_dataset_readers: ${{ secrets[format('TF_VAR_{0}_DATASET_READERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
-          TF_VAR_ml_team_group: ${{ secrets[format('TF_VAR_{0}_ML_TEAM_GROUP', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '' }}
-          TF_VAR_analysts_group: ${{ secrets[format('TF_VAR_{0}_ANALYSTS_GROUP', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '' }}
+          TF_VAR_dataset_owners: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_OWNERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_OWNERS) || secrets.TF_VAR_PROD_DATASET_OWNERS || '[]' }}
+          TF_VAR_dataset_writers: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_WRITERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_WRITERS) || secrets.TF_VAR_PROD_DATASET_WRITERS || '[]' }}
+          TF_VAR_dataset_readers: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_READERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_READERS) || secrets.TF_VAR_PROD_DATASET_READERS || '[]' }}
+          TF_VAR_ml_team_group: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_ML_TEAM_GROUP) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_ML_TEAM_GROUP) || secrets.TF_VAR_PROD_ML_TEAM_GROUP || '' }}
+          TF_VAR_analysts_group: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_ANALYSTS_GROUP) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_ANALYSTS_GROUP) || secrets.TF_VAR_PROD_ANALYSTS_GROUP || '' }}
         run: |
           set +e
           terraform plan -no-color -out=tfplan -detailed-exitcode
@@ -220,7 +224,11 @@ jobs:
         with:
           # Use environment-specific WIF configuration
           # Each environment has its own WIF setup in its own project
-          workload_identity_provider: 'projects/${{ secrets[format('GCP_{0}_PROJECT_NUMBER', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          workload_identity_provider: ${{ 
+            env.ENVIRONMENT == 'dev' && format('projects/{0}/locations/global/workloadIdentityPools/github-pool/providers/github-provider', secrets.GCP_DEV_PROJECT_NUMBER) ||
+            env.ENVIRONMENT == 'stage' && format('projects/{0}/locations/global/workloadIdentityPools/github-pool/providers/github-provider', secrets.GCP_STAGE_PROJECT_NUMBER) ||
+            format('projects/{0}/locations/global/workloadIdentityPools/github-pool/providers/github-provider', secrets.GCP_PROD_PROJECT_NUMBER)
+          }}
           service_account: 'terraform-${{ env.ENVIRONMENT }}@${{ secrets.GCP_PROJECT_PREFIX }}-${{ env.ENVIRONMENT }}.iam.gserviceaccount.com'
           token_format: 'access_token'
       
@@ -244,15 +252,15 @@ jobs:
         env:
           # Map GitHub Secrets to Terraform variables based on environment
           # GitHub stores secrets with uppercase environment names
-          TF_VAR_project_id: ${{ secrets[format('TF_VAR_{0}_PROJECT_ID', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
-          TF_VAR_region: ${{ secrets[format('TF_VAR_{0}_REGION', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
-          TF_VAR_zone: ${{ secrets[format('TF_VAR_{0}_ZONE', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] }}
+          TF_VAR_project_id: ${{ env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_PROJECT_ID || env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_PROJECT_ID || secrets.TF_VAR_PROD_PROJECT_ID }}
+          TF_VAR_region: ${{ env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_REGION || env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_REGION || secrets.TF_VAR_PROD_REGION }}
+          TF_VAR_zone: ${{ env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_ZONE || env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_ZONE || secrets.TF_VAR_PROD_ZONE }}
           # Optional variables - use empty defaults if not set
-          TF_VAR_dataset_owners: ${{ secrets[format('TF_VAR_{0}_DATASET_OWNERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
-          TF_VAR_dataset_writers: ${{ secrets[format('TF_VAR_{0}_DATASET_WRITERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
-          TF_VAR_dataset_readers: ${{ secrets[format('TF_VAR_{0}_DATASET_READERS', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '[]' }}
-          TF_VAR_ml_team_group: ${{ secrets[format('TF_VAR_{0}_ML_TEAM_GROUP', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '' }}
-          TF_VAR_analysts_group: ${{ secrets[format('TF_VAR_{0}_ANALYSTS_GROUP', env.ENVIRONMENT == 'dev' && 'DEV' || env.ENVIRONMENT == 'stage' && 'STAGE' || 'PROD')] || '' }}
+          TF_VAR_dataset_owners: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_OWNERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_OWNERS) || secrets.TF_VAR_PROD_DATASET_OWNERS || '[]' }}
+          TF_VAR_dataset_writers: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_WRITERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_WRITERS) || secrets.TF_VAR_PROD_DATASET_WRITERS || '[]' }}
+          TF_VAR_dataset_readers: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_READERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_READERS) || secrets.TF_VAR_PROD_DATASET_READERS || '[]' }}
+          TF_VAR_ml_team_group: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_ML_TEAM_GROUP) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_ML_TEAM_GROUP) || secrets.TF_VAR_PROD_ML_TEAM_GROUP || '' }}
+          TF_VAR_analysts_group: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_ANALYSTS_GROUP) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_ANALYSTS_GROUP) || secrets.TF_VAR_PROD_ANALYSTS_GROUP || '' }}
         run: |
           terraform apply -no-color -auto-approve tfplan
       
