@@ -1,0 +1,42 @@
+name: Establish GitHub Actions Bot
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'bot-establish/**'
+
+jobs:
+  establish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      
+      - name: Create Bot Establishment File
+        run: |
+          echo "# Bot Establishment" > .github/bot-established.txt
+          echo "This file was created by github-actions[bot] to establish its presence in the repository." >> .github/bot-established.txt
+          echo "Created at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> .github/bot-established.txt
+          echo "Workflow run: ${{ github.run_id }}" >> .github/bot-established.txt
+      
+      - name: Commit and Push
+        run: |
+          git add .github/bot-established.txt
+          git commit -m "bot: Establish github-actions[bot] presence in repository
+          
+          This commit establishes the github-actions[bot] so it can be added to branch protection bypass lists.
+          
+          Co-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          
+          git push origin HEAD
