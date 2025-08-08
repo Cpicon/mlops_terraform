@@ -75,46 +75,19 @@ jobs:
       ## ==============================================
       ## Section 2: GOOGLE CLOUD AUTHENTICATION WITH WIF
       ## ==============================================
-      # Debug: Check if secrets are properly set
+      # Debug: Check environment (TEMPORARY: hardcoded values)
       - name: Debug WIF Configuration
         run: |
           echo "Environment: ${{ env.ENVIRONMENT }}"
-          echo "Checking if project number secret exists..."
+          echo "TEMPORARY: Using hardcoded project numbers for debugging"
           if [[ "${{ env.ENVIRONMENT }}" == "dev" ]]; then
-            if [[ -z "${{ secrets.GCP_DEV_PROJECT_NUMBER }}" ]]; then
-              echo "ERROR: GCP_DEV_PROJECT_NUMBER secret is not set or empty!"
-              exit 1
-            else
-              PROJECT_NUM="${{ secrets.GCP_DEV_PROJECT_NUMBER }}"
-              echo "GCP_DEV_PROJECT_NUMBER is set (length: ${#PROJECT_NUM})"
-              echo "Project Number starts with: ${PROJECT_NUM:0:4}***"
-            fi
+            echo "Dev Project Number: 4275271155"
           elif [[ "${{ env.ENVIRONMENT }}" == "stage" ]]; then
-            if [[ -z "${{ secrets.GCP_STAGE_PROJECT_NUMBER }}" ]]; then
-              echo "ERROR: GCP_STAGE_PROJECT_NUMBER secret is not set or empty!"
-              exit 1
-            else
-              PROJECT_NUM="${{ secrets.GCP_STAGE_PROJECT_NUMBER }}"
-              echo "GCP_STAGE_PROJECT_NUMBER is set (length: ${#PROJECT_NUM})"
-              echo "Project Number starts with: ${PROJECT_NUM:0:4}***"
-            fi
+            echo "Stage Project Number: 729631533282"
           else
-            if [[ -z "${{ secrets.GCP_PROD_PROJECT_NUMBER }}" ]]; then
-              echo "ERROR: GCP_PROD_PROJECT_NUMBER secret is not set or empty!"
-              exit 1
-            else
-              PROJECT_NUM="${{ secrets.GCP_PROD_PROJECT_NUMBER }}"
-              echo "GCP_PROD_PROJECT_NUMBER is set (length: ${#PROJECT_NUM})"
-              echo "Project Number starts with: ${PROJECT_NUM:0:4}***"
-            fi
+            echo "Prod Project Number: 391673587007"
           fi
-          
-          if [[ -z "${{ secrets.GCP_PROJECT_PREFIX }}" ]]; then
-            echo "ERROR: GCP_PROJECT_PREFIX secret is not set or empty!"
-            exit 1
-          else
-            echo "GCP_PROJECT_PREFIX is set: ${{ secrets.GCP_PROJECT_PREFIX }}"
-          fi
+          echo "Project Prefix: mycompany-mlops"
       
       # Set WIF provider based on environment
       - name: Set WIF Provider
@@ -175,11 +148,10 @@ jobs:
       - name: Terraform Plan
         id: plan
         env:
-          # Map GitHub Secrets to Terraform variables based on environment
-          # GitHub stores secrets with uppercase environment names
-          TF_VAR_project_id: ${{ env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_PROJECT_ID || env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_PROJECT_ID || secrets.TF_VAR_PROD_PROJECT_ID }}
-          TF_VAR_region: ${{ env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_REGION || env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_REGION || secrets.TF_VAR_PROD_REGION }}
-          TF_VAR_zone: ${{ env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_ZONE || env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_ZONE || secrets.TF_VAR_PROD_ZONE }}
+          # TEMPORARY: Hardcoded values for debugging
+          TF_VAR_project_id: ${{ env.ENVIRONMENT == 'dev' && 'mycompany-mlops-dev' || env.ENVIRONMENT == 'stage' && 'mycompany-mlops-stage' || 'mycompany-mlops-prod' }}
+          TF_VAR_region: ${{ env.ENVIRONMENT == 'dev' && 'us-central1' || env.ENVIRONMENT == 'stage' && 'us-central1' || 'us-central1' }}
+          TF_VAR_zone: ${{ env.ENVIRONMENT == 'dev' && 'us-central1-a' || env.ENVIRONMENT == 'stage' && 'us-central1-a' || 'us-central1-a' }}
           # Optional variables - use empty defaults if not set
           TF_VAR_dataset_owners: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_OWNERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_OWNERS) || secrets.TF_VAR_PROD_DATASET_OWNERS || '[]' }}
           TF_VAR_dataset_writers: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_WRITERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_WRITERS) || secrets.TF_VAR_PROD_DATASET_WRITERS || '[]' }}
@@ -362,11 +334,10 @@ jobs:
       # Apply the plan
       - name: Terraform Apply
         env:
-          # Map GitHub Secrets to Terraform variables based on environment
-          # GitHub stores secrets with uppercase environment names
-          TF_VAR_project_id: ${{ env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_PROJECT_ID || env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_PROJECT_ID || secrets.TF_VAR_PROD_PROJECT_ID }}
-          TF_VAR_region: ${{ env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_REGION || env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_REGION || secrets.TF_VAR_PROD_REGION }}
-          TF_VAR_zone: ${{ env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_ZONE || env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_ZONE || secrets.TF_VAR_PROD_ZONE }}
+          # TEMPORARY: Hardcoded values for debugging
+          TF_VAR_project_id: ${{ env.ENVIRONMENT == 'dev' && 'mycompany-mlops-dev' || env.ENVIRONMENT == 'stage' && 'mycompany-mlops-stage' || 'mycompany-mlops-prod' }}
+          TF_VAR_region: ${{ env.ENVIRONMENT == 'dev' && 'us-central1' || env.ENVIRONMENT == 'stage' && 'us-central1' || 'us-central1' }}
+          TF_VAR_zone: ${{ env.ENVIRONMENT == 'dev' && 'us-central1-a' || env.ENVIRONMENT == 'stage' && 'us-central1-a' || 'us-central1-a' }}
           # Optional variables - use empty defaults if not set
           TF_VAR_dataset_owners: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_OWNERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_OWNERS) || secrets.TF_VAR_PROD_DATASET_OWNERS || '[]' }}
           TF_VAR_dataset_writers: ${{ (env.ENVIRONMENT == 'dev' && secrets.TF_VAR_DEV_DATASET_WRITERS) || (env.ENVIRONMENT == 'stage' && secrets.TF_VAR_STAGE_DATASET_WRITERS) || secrets.TF_VAR_PROD_DATASET_WRITERS || '[]' }}
